@@ -20,3 +20,4 @@ See [SRB2 Wiki/Source code compiling](http://wiki.srb2.org/wiki/Source_code_comp
 
 ## Disclaimer
 Sonic Team Junior is in no way affiliated with SEGA or Sonic Team. We do not claim ownership of any of SEGA's intellectual property used in SRB2.
+Addon loading doesnt affect servers so you cant cheat on servers with this source mod :). Also this mod can cause unintended sideaffects when you load a charter mod like record atack can break the standing sprites have fun
