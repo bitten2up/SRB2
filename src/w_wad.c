@@ -822,8 +822,8 @@ UINT16 W_InitFile(const char *filename, boolean mainfile, boolean startup)
 
 	if (important && !mainfile)
 	{
-		//G_SetGameModified(true);
-		modifiedgame = true; // avoid savemoddata being set to false
+		//G_SetGameModified(false);
+		modifiedgame = false; // avoid savemoddata being set to false
 	}
 
 	//
