@@ -1126,7 +1126,7 @@ UINT16 W_InitFolder(const char *path, boolean mainfile, boolean startup)
 	}
 
 	if (important && !mainfile)
-		G_SetGameModified(true);
+		//G_SetGameModified(true);
 
 	wadfile = Z_Malloc(sizeof (*wadfile), PU_STATIC, NULL);
 	wadfile->filename = fn;
