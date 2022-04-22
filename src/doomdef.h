@@ -14,7 +14,6 @@
 
 #ifndef __DOOMDEF__
 #define __DOOMDEF__
-#define NONET
 // Sound system select
 // This should actually be in the makefile,
 // but I can't stand that gibberish. D:
