@@ -158,6 +158,12 @@ extern char logfilename[1024];
 // Use .kart extension addons
 //#define USE_KART
 
+// Allow custom DLL loading
+#define USE_DLL_MODDING
+#ifdef USE_DLL_MODDING
+#define NO_NET
+#endif
+
 // Modification options
 // If you want to take advantage of the Master Server's ability to force clients to update
 // to the latest version, fill these out.  Otherwise, just comment out UPDATE_ALERT and leave
