@@ -6375,6 +6375,9 @@ static void M_LoadAddonsPatches(void)
 #ifdef USE_KART
 	addonsp[EXT_KART] = W_CachePatchName("M_FKART", PU_PATCH);
 #endif
+#ifdef USE_DLL_MODDING
+	addonsp[EXT_DLL] = W_CachePatchName("M_FDLL", PU_PATCH);
+#endif
 	addonsp[EXT_PK3] = W_CachePatchName("M_FPK3", PU_PATCH);
 	addonsp[EXT_SOC] = W_CachePatchName("M_FSOC", PU_PATCH);
 	addonsp[EXT_LUA] = W_CachePatchName("M_FLUA", PU_PATCH);
@@ -6869,6 +6872,9 @@ static void M_HandleAddons(INT32 choice)
 						case EXT_TXT:
 							M_StartMessage(va("%c%s\x80\nThis file may not be a console script.\nAttempt to run anyways? \n\n(Press 'Y' to confirm)\n", ('\x80' + (highlightflags>>V_CHARCOLORSHIFT)), dirmenu[dir_on[menudepthleft]]+DIR_STRING),M_AddonExec,MM_YESNO);
 							break;
+						case EXT_DLL:
+							case EXT_TXT:
+							M_StartMessage(va("%c%s\x80\nThis file may not be a modification, and can run arbitary code\n\n(Press 'Y' to confirm)\n", ('\x80' + (highlightflags>>V_CHARCOLORSHIFT)), dirmenu[dir_on[menudepthleft]]+DIR_STRING),M_AddonExec,MM_YESNO);
 						case EXT_CFG:
 							M_AddonExec(KEY_ENTER);
 							break;
