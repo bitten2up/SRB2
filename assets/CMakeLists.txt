@@ -42,10 +42,29 @@ set(SRB2_ASSETS ${SRB2_ASSET_DOCS} ${SRB2_ASSETS_GAME})
 
 if(${CMAKE_SYSTEM} MATCHES Darwin)
 	get_target_property(outname SRB2SDL2 OUTPUT_NAME)
-	install(FILES ${SRB2_ASSETS} DESTINATION "${outname}.app/Contents/Resources")
-	install(DIRECTORY "${SRB2_ASSET_DIRECTORY_ABSOLUTE}/models" DESTINATION "${outname}.app/Contents/Resources")
-	install(FILES ${SRB2_ASSETS_DOCS} DESTINATION .)
-else()
-	install(FILES ${SRB2_ASSETS} DESTINATION .)
-	install(DIRECTORY "${SRB2_ASSET_DIRECTORY_ABSOLUTE}/models" DESTINATION .)
+	if(${SRB2_ASSET_INSTALL})
+		install(DIRECTORY "${SRB2_ASSET_DIRECTORY}/"
+			DESTINATION "${outname}.app/Contents/Resources"
+		)
+	endif()
+	# Always install the doc files, even in non-asset packages.
+	install(FILES ${SRB2_ASSET_DOCS}
+		DESTINATION .
+		OPTIONAL
+	)
+elseif(NOT ${CMAKE_SYSTEM} MATCHES Emscripten)
+	# Emscripten packages pre-loaded assets by itself. All other assets are
+	# the user's responsibility to package.
+	if(${SRB2_ASSET_INSTALL})
+		install(DIRECTORY "${SRB2_ASSET_DIRECTORY}/"
+			DESTINATION .
+		)
+		# Docs are assumed to be located in SRB2_ASSET_DIRECTORY, so don't install them in their own call.
+	else()
+		# Always install the doc files, even in non-asset packages.
+		install(FILES ${SRB2_ASSET_DOCS}
+			DESTINATION .
+			OPTIONAL
+		)
+	endif()
 endif()

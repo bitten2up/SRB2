@@ -20,6 +20,34 @@ set(SRB2_CONFIG_YASM OFF CACHE BOOL
 	"Use YASM in place of NASM.")
 set(SRB2_CONFIG_DEV_BUILD OFF CACHE BOOL
 	"Compile a development build of SRB2.")
+set(SRB2_CONFIG_HAVE_PNG ON CACHE BOOL
+	"Enable PNG support. Depends on zlib, so will be disabled if you don't enable that too.")
+set(SRB2_CONFIG_HAVE_ZLIB ON CACHE BOOL
+	"Enable zlib support.")
+if(NOT ${CMAKE_SYSTEM} MATCHES Emscripten)
+	set(SRB2_CONFIG_HAVE_GME ON CACHE BOOL
+		"Enable GME support.")
+	set(SRB2_CONFIG_HAVE_OPENMPT ON CACHE BOOL
+		"Enable OpenMPT support.")
+	set(SRB2_CONFIG_HAVE_CURL ON CACHE BOOL
+		"Enable curl support.")
+	set(SRB2_CONFIG_HAVE_THREADS ON CACHE BOOL
+		"Enable multithreading support.")
+	if(${CMAKE_SYSTEM} MATCHES Windows)
+		set(SRB2_CONFIG_HAVE_MIXERX ON CACHE BOOL
+			"Enable SDL Mixer X support.")
+	else()
+		set(SRB2_CONFIG_HAVE_MIXERX OFF)
+	endif()
+	set(SRB2_CONFIG_HWRENDER ON CACHE BOOL
+		"Enable hardware rendering through OpenGL.")
+	set(SRB2_CONFIG_USEASM OFF CACHE BOOL
+		"Enable NASM tmap implementation for software mode speedup.")
+	set(SRB2_CONFIG_YASM OFF CACHE BOOL
+		"Use YASM in place of NASM.")
+	set(SRB2_CONFIG_STATIC_OPENGL OFF CACHE BOOL
+		"Use statically linked OpenGL. NOT RECOMMENDED.")
+endif()
 
 add_subdirectory(blua)
 
@@ -60,14 +88,42 @@ target_sources(SRB2SDL2 PRIVATE apng.c)
 set(SRB2_HAVE_THREADS ON)
 target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_THREADS)
 
-if("${SRB2_CONFIG_HWRENDER}")
-	target_compile_definitions(SRB2SDL2 PRIVATE -DHWRENDER)
-	add_subdirectory(hardware)
+if(${SRB2_CONFIG_HAVE_ZLIB})
+	if(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
+		set(ZLIB_FOUND ON)
+		set(ZLIB_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/zlib)
+		if(${SRB2_SYSTEM_BITS} EQUAL 64)
+			set(ZLIB_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/zlib/win32 -lz64")
+		else() # 32-bit
+			set(ZLIB_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/zlib/win32 -lz32")
+		endif()
+	elseif(${CMAKE_SYSTEM} MATCHES Emscripten)
+		# \todo handle Emscripten library switches here, not in emscripten/CMakeLists.txt
+		set(ZLIB_FOUND ON)
+	else()
+		find_package(ZLIB)
+	endif()
+	if(${ZLIB_FOUND})
+		set(SRB2_HAVE_ZLIB ON)
+		add_definitions(-DHAVE_ZLIB)
+	else()
+		message(WARNING "You have specified that ZLIB is available but it was not found. SRB2 may not compile correctly.")
+	endif()
+endif()
 
-	if("${SRB2_CONFIG_STATIC_OPENGL}")
-		find_package(OpenGL)
-		if(${OPENGL_FOUND})
-			target_compile_definitions(SRB2SDL2 PRIVATE -DSTATIC_OPENGL)
+if(${SRB2_CONFIG_HAVE_PNG} AND ${SRB2_CONFIG_HAVE_ZLIB})
+	if (${ZLIB_FOUND})
+		if(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
+			set(PNG_FOUND ON)
+			set(PNG_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/libpng-src)
+			if(${SRB2_SYSTEM_BITS} EQUAL 64)
+				set(PNG_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/libpng-src/projects -lpng64")
+			else() # 32-bit
+				set(PNG_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/libpng-src/projects -lpng32")
+			endif()
+		elseif(${CMAKE_SYSTEM} MATCHES Emscripten)
+			# \todo handle Emscripten library switches here, not in emscripten/CMakeLists.txt
+			set(PNG_FOUND ON)
 		else()
 			message(WARNING "You have specified static opengl but opengl was not found. Not setting HWRENDER.")
 		endif()

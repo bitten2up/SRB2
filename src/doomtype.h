@@ -118,7 +118,7 @@ int endswith (const char *base, const char *tag);
 	#endif
 #endif //macintosh
 
-#if defined (_WIN32) || defined (__HAIKU__)
+#if defined (PC_DOS) || defined (_WIN32) || defined (__HAIKU__) || defined(__EMSCRIPTEN__)
 #define HAVE_DOSSTR_FUNCS
 #endif
 

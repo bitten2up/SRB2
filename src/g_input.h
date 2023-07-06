@@ -358,6 +358,8 @@ void G_ClearAllControlKeys(void);
 void Command_Setcontrol_f(void);
 void Command_Setcontrol2_f(void);
 
+extern const char *gamecontrolname[num_gamecontrols];
+
 void G_DefineDefaultControls(void);
 
 INT32 G_GetControlScheme(INT32 (*fromcontrols)[2], const INT32 *gclist, INT32 gclen);

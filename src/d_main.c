@@ -90,6 +90,10 @@
 #include "win32/win_main.h" // I_DoStartupMouse
 #endif
 
+#if defined(__EMSCRIPTEN__)
+#include "sdl/emscripten/i_emscripten.h"
+#endif
+
 #ifdef HW3SOUND
 #include "hardware/hw3sound.h"
 #endif
@@ -736,9 +740,11 @@ tic_t rendergametic;
 
 void D_SRB2Loop(void)
 {
-	tic_t entertic = 0, oldentertics = 0, realtics = 0, rendertimeout = INFTICS;
+#ifndef MAINLOOPBYFUNCTION
+	tic_t oldentertics = 0, entertic = 0, realtics = 0, rendertimeout = INFTICS;
 	double deltatics = 0.0;
 	double deltasecs = 0.0;
+#endif
 	static lumpnum_t gstartuplumpnum;
 
 #if defined(__ANDROID__)
@@ -811,7 +817,17 @@ void D_SRB2Loop(void)
 		V_DrawScaledPatch(0, 0, 0, W_CachePatchNum(gstartuplumpnum, PU_PATCH));
 	}
 
+#ifdef MAINLOOPBYFUNCTION
+	I_SetupMainLoop();
+}
+
+void D_SRB2LoopIter(void)
+{
+	tic_t entertic = 0, realtics = 0;
+	// oldentertics and lastwipetic are initialized in I_SetupMainLoop()
+#else
 	for (;;)
+#endif
 	{
 		// capbudget is the minimum precise_t duration of a single loop iteration
 		precise_t capbudget;
@@ -851,6 +867,15 @@ void D_SRB2Loop(void)
 
 		interp = R_UsingFrameInterpolation() && !dedicated;
 		doDisplay = false;
+		if (!realtics && !singletics)
+		{
+			I_Sleep();
+#ifdef MAINLOOPBYFUNCTION
+			return;
+#else
+			continue;
+#endif
+		}
 
 #ifdef HW3SOUND
 		HW3S_BeginFrameUpdate();

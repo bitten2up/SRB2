@@ -43,6 +43,10 @@
 //#define SDLMAIN
 #endif
 
+#if defined(__EMSCRIPTEN__)
+#include "emscripten/i_emscripten.h"
+#endif
+
 #ifdef SDLMAIN
 #include "SDL_main.h"
 #elif defined(FORCESDLMAIN)
@@ -109,6 +113,11 @@ static inline VOID MakeCodeWritable(VOID)
 #pragma GCC diagnostic ignored "-Wmissing-noreturn"
 #endif
 
+#if defined(__EMSCRIPTEN__)
+int Em_Program_Main(void)
+{
+	// myargc/myargv are assigned in i_emscripten.c:main()
+#else
 #ifdef FORCESDLMAIN
 int SDL_main(int argc, char **argv)
 #else
@@ -117,6 +126,7 @@ int main(int argc, char **argv)
 {
 	myargc = argc;
 	myargv = argv; /// \todo pull out path to exe from this string
+#endif
 
 #ifdef HAVE_TTF
 #ifdef _WIN32

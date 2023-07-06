@@ -3705,6 +3705,36 @@ static void Got_KickCmd(UINT8 **p, INT32 playernum)
 		CL_RemovePlayer(pnum, kickreason);
 }
 
+#ifndef NONET
+static void Command_ResendGamestate(void)
+{
+	SINT8 playernum;
+
+	if (COM_Argc() == 1)
+	{
+		CONS_Printf(M_GetText("resendgamestate <playername/playernum>: resend the game state to a player\n"));
+		return;
+	}
+	else if (client)
+	{
+		CONS_Printf(M_GetText("Only the server can use this.\n"));
+		return;
+	}
+
+	playernum = nametonum(COM_Argv(1));
+	if (playernum == -1 || playernum == 0)
+		return;
+
+	// Send a PT_WILLRESENDGAMESTATE packet to the client so they know what's going on
+	netbuffer->packettype = PT_WILLRESENDGAMESTATE;
+	if (!HSendPacket(playernode[playernum], true, 0, 0))
+	{
+		CONS_Alert(CONS_ERROR, M_GetText("A problem occured, please try again.\n"));
+		return;
+	}
+}
+#endif
+
 static CV_PossibleValue_t netticbuffer_cons_t[] = {{0, "MIN"}, {3, "MAX"}, {0, NULL}};
 consvar_t cv_netticbuffer = CVAR_INIT ("netticbuffer", "1", CV_SAVE, netticbuffer_cons_t, NULL);
 
@@ -4437,7 +4467,6 @@ static void HandleServerInfo(SINT8 node)
 
 	SL_InsertServer(&netbuffer->u.serverinfo, node);
 }
-#endif
 
 static void PT_WillResendGamestate(void)
 {
@@ -4481,6 +4510,7 @@ static void PT_CanReceiveGamestate(SINT8 node)
 	(void)node;
 #endif
 }
+#endif
 
 /** Handles a packet received from a node that isn't in game
   *
@@ -4943,9 +4973,11 @@ static void HandlePacketFromPlayer(SINT8 node)
 			Net_CloseConnection(node);
 			nodeingame[node] = false;
 			break;
+#ifndef NONET
 		case PT_CANRECEIVEGAMESTATE:
 			PT_CanReceiveGamestate(node);
 			break;
+#endif
 		case PT_ASKLUAFILE:
 			if (server && luafiletransfers && luafiletransfers->nodestatus[node] == LFTNS_ASKED)
 				AddLuaFileToSendQueue(node, luafiletransfers->realfilename);
@@ -5064,9 +5096,11 @@ static void HandlePacketFromPlayer(SINT8 node)
 			if (server)
 				PT_FileReceived();
 			break;
+#ifndef NONET
 		case PT_WILLRESENDGAMESTATE:
 			PT_WillResendGamestate();
 			break;
+#endif
 		case PT_SENDINGLUAFILE:
 			if (client)
 				CL_PrepareDownloadLuaFile();

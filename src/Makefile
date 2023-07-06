@@ -115,14 +115,21 @@
 #
 # LIBGME_PKGCONFIG=, LIBGME_CFLAGS=, LIBGME_LDFLAGS=
 
-# LIBOPENMPT_PKGCONFIG=
-# LIBOPENMPT_CFLAGS=, LIBOPENMPT_LDFLAGS=
-#
-# ZLIB_PKGCONFIG=, ZLIB_CFLAGS=, ZLIB_LDFLAGS=
-#
-# SDL_PKGCONFIG=
-# SDL_CONFIG= - sdl-config command.
-# SDL_CFLAGS=, SDL_LDFLAGS=
+ALL_SYSTEMS=\
+	PANDORA\
+	LINUX64\
+	MINGW64\
+	HAIKU\
+	DUMMY\
+	DJGPPDOS\
+	MINGW\
+	UNIX\
+	LINUX\
+	SOLARIS\
+	FREEBSD\
+	MACOSX\
+	EMSCRIPTEN\
+	SDL\
 
 clean_targets=cleandep clean distclean info
 
@@ -366,6 +373,19 @@ endif
 # I wish I could make dependencies out of rc files :(
 $(objdir)/win32/Srb2win.res : \
 	win32/afxres.h win32/resource.h
+#mac os x lsdlsrb2 does not like objcopy
+# this also does not apply to emscripten
+ifndef MACOSX
+ifndef EMSCRIPTEN
+	$(OBJCOPY) $(BIN)/$(EXENAME) $(BIN)/$(DBGNAME)
+	$(OBJCOPY) --strip-debug $(BIN)/$(EXENAME)
+	-$(OBJCOPY) --add-gnu-debuglink=$(BIN)/$(DBGNAME) $(BIN)/$(EXENAME)
+endif
+endif
+ifndef NOUPX
+	-$(UPX) $(UPX_OPTS) $(BIN)/$(EXENAME)
+endif
+	@echo Build is done, please look for $(EXENAME) in $(BIN), \(checking for post steps\)
 
 # dependency recipe template
 # 1: source file suffix
