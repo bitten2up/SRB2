@@ -358,7 +358,7 @@ void G_ClearAllControlKeys(void);
 void Command_Setcontrol_f(void);
 void Command_Setcontrol2_f(void);
 
-extern const char *gamecontrolname[num_gamecontrols];
+extern const char *gamecontrolname[NUM_GAMECONTROLS];
 
 void G_DefineDefaultControls(void);
 

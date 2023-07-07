@@ -869,7 +869,7 @@ void D_SRB2LoopIter(void)
 		doDisplay = false;
 		if (!realtics && !singletics)
 		{
-			I_Sleep();
+			I_Sleep(0);
 #ifdef MAINLOOPBYFUNCTION
 			return;
 #else
