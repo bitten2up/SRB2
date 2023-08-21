@@ -30,6 +30,7 @@
 #include "m_misc.h" // for tunes command
 #include "m_cond.h" // for conditionsets
 #include "lua_hook.h" // MusicChange hook
+#include "m_menu.h" // STAR STUFF: Jukeboxes
 
 #ifdef HW3SOUND
 // 3D Sound Interface
@@ -2070,6 +2071,15 @@ boolean S_RecallMusic(UINT16 status, boolean fromfirst)
 		return false;
 	}
 
+	// STAR STUFF YAY //
+	// We're Playing Music in the Jukebox, Clear the Memory and Don't Do Anything
+	if (jukeboxMusicPlaying)
+	{
+		Z_Free(entry);
+		return false;
+	}
+	// END THAT STUFF //
+
 	if (strncmp(entry->musname, S_MusicName(), 7) || // don't restart music if we're already playing it
 		(midipref != currentmidi && S_PrefAvailable(midipref, entry->musname))) // but do if the user's preference has changed
 	{
@@ -2133,6 +2143,20 @@ static boolean S_LoadMusic(const char *mname)
 	lumpnum_t mlumpnum;
 	void *mdata;
 
+	// STAR STUFF //
+	static const char *defaultMusicTrackName[] = {
+		[1] = "GFZ1", 		// GFZ1
+		"D_RUNNIN",			// DooM Wad Anthem
+		NULL
+	};
+
+	static const char *defaultMusicTrack[] = {
+		[1] = "gfz1", 		// GFZ1
+		"_runin",			// DooM Wad Anthem
+		NULL
+	};
+	// END THAT FOR NOW //
+
 	if (S_MusicDisabled())
 		return false;
 
@@ -2141,7 +2165,19 @@ static boolean S_LoadMusic(const char *mname)
 	if (mlumpnum == LUMPERROR)
 	{
 		CONS_Alert(CONS_ERROR, "Music %.6s could not be loaded: lump not found!\n", mname);
-		return false;
+		
+		// STAR STUFF //
+		if (cv_defaultmaptrack.value)
+		{
+			CONS_Alert(CONS_NOTICE, "Playing default map track %s as requested by TSoURDt3rd...\n", defaultMusicTrackName[cv_defaultmaptrack.value]);
+			
+			mlumpnum = S_GetMusicLumpNum(defaultMusicTrack[cv_defaultmaptrack.value]);
+			if (mlumpnum == LUMPERROR)
+				return false;
+		}
+		else
+			return false;
+		// END OF STAR STUFF //
 	}
 
 	// load & register it
@@ -2254,6 +2290,15 @@ void S_ChangeMusicEx(const char *mmusic, UINT16 mflags, boolean looping, UINT32 
 	if (S_MusicDisabled())
 		return;
 
+	// STAR STUFF //
+	if (jukeboxMusicPlaying)
+	{
+		if (Playing() && playeringame[consoleplayer])
+			S_ResumeAudio();
+		return;
+	}
+	// END STAR STUFF //
+
 	strncpy(newmusic, mmusic, 7);
 	if (LUA_HookMusicChange(music_name, &hook_param))
 		return;
@@ -2314,6 +2359,16 @@ void S_StopMusic(void)
 {
 	if (!I_SongPlaying())
 		return;
+
+	// STAR SPECIFIC STUFF //
+	if (jukeboxMusicPlaying)
+	{
+		if (!cv_luacanstopthejukebox.value && StopMusicCausedByLua)
+			return;
+		else
+			M_ResetJukebox();
+	}
+	// I MUST LABEL EVERYTHING //
 
 	if (I_SongPaused())
 		I_ResumeSong();
@@ -2408,6 +2463,11 @@ void S_StopFadingMusic(void)
 
 boolean S_FadeMusicFromVolume(UINT8 target_volume, INT16 source_volume, UINT32 ms)
 {
+	// STAR STUFF LOL //
+	if (jukeboxMusicPlaying)
+		return false;
+	// END STAR STUFF LOL //
+
 	if (source_volume < 0)
 		return I_FadeSong(target_volume, ms, NULL);
 	else
@@ -2416,6 +2476,11 @@ boolean S_FadeMusicFromVolume(UINT8 target_volume, INT16 source_volume, UINT32 m
 
 boolean S_FadeOutStopMusic(UINT32 ms)
 {
+	// MORE STAR STUFF //
+	if (jukeboxMusicPlaying)
+		return false;
+	// NO MORE STAR STUFF //
+
 	return I_FadeSong(0, ms, &S_StopMusic);
 }
 
@@ -2432,11 +2497,24 @@ void S_StartEx(boolean reset)
 {
 	if (mapmusflags & MUSIC_RELOADRESET)
 	{
+#ifdef APRIL_FOOLS
+		if (cv_ultimatemode.value)
+			strncpy(mapmusname, "_hehe", 7);
+		else
+			strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
+#else
 		strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
+#endif
+
 		mapmusname[6] = 0;
 		mapmusflags = (mapheaderinfo[gamemap-1]->mustrack & MUSIC_TRACKMASK);
 		mapmusposition = mapheaderinfo[gamemap-1]->muspos;
 	}
+
+	// STAR STUFF YAY //
+	if (jukeboxMusicPlaying)
+		return;
+	// TORTURE IS MY FAVORITE FORM OF PUNISHMENT, HOW DID YOU KNOW //
 
 	if (RESETMUSIC || reset)
 		S_StopMusic();
@@ -2454,6 +2532,22 @@ static void Command_Tunes_f(void)
 	UINT16 track = 0;
 	UINT32 position = 0;
 	const size_t argc = COM_Argc();
+
+	// STAR STUFF EEEEEEEE //
+#ifdef APRIL_FOOLS
+	if (cv_ultimatemode.value)
+	{
+		CONS_Printf("Nice Try. Maybe there's a command you need to turn off, perhaps?\n");
+		return;
+	}
+#endif
+
+	if (jukeboxMusicPlaying)
+	{
+		CONS_Printf("Sorry, you can't use this command while playing music in the Jukebox.\n");
+		return;
+	}
+	// I MEAN, IT MAKES SENSE, RIGHT? //
 
 	if (argc < 2) //tunes slot ...
 	{
@@ -2482,7 +2576,14 @@ static void Command_Tunes_f(void)
 	}
 	else if (!strcasecmp(tunearg, "-default"))
 	{
+#ifdef APRIL_FOOLS
+		if (cv_ultimatemode.value)
+			tunearg = "_hehe";
+		else
+			tunearg = mapheaderinfo[gamemap-1]->musname;
+#else
 		tunearg = mapheaderinfo[gamemap-1]->musname;
+#endif
 		track = mapheaderinfo[gamemap-1]->mustrack;
 	}
 
@@ -2520,12 +2621,15 @@ static void Command_RestartAudio_f(void)
 	I_StartupSound();
 	I_InitMusic();
 
-// These must be called or no sound and music until manually set.
-
+	// These must be called or no sound and music until manually set.
 	I_SetSfxVolume(cv_soundvolume.value);
 	S_SetMusicVolume(cv_digmusicvolume.value, cv_midimusicvolume.value);
 	if (Playing()) // Gotta make sure the player is in a level
 		P_RestoreMusic(&players[consoleplayer]);
+	// STAR STUFF FOR REASONS I GUESS //
+	if (jukeboxMusicPlaying)
+		M_ResetJukebox();
+	// FINE, I'LL LET YOU STOP IT HERE... //
 }
 
 void GameSounds_OnChange(void)
@@ -2562,7 +2666,7 @@ void GameDigiMusic_OnChange(void)
 
 		if (Playing())
 			P_RestoreMusic(&players[consoleplayer]);
-		else if ((!cv_musicpref.value || midi_disabled) && S_DigExists("_clear"))
+		else if ((!cv_musicpref.value || midi_disabled) && S_DigExists("_clear")) /* STAR NOTE: i'll leave this here for now (titlemapinaction && menuactive) */
 			S_ChangeMusicInternal("_clear", false);
 	}
 	else
@@ -2575,7 +2679,7 @@ void GameDigiMusic_OnChange(void)
 			{
 				if (Playing())
 					P_RestoreMusic(&players[consoleplayer]);
-				else
+				else /* STAR NOTE: i'll also leave this here for now (titlemapinaction && menuactive) */
 					S_ChangeMusicInternal("_clear", false);
 			}
 		}
@@ -2597,7 +2701,7 @@ void GameMIDIMusic_OnChange(void)
 
 		if (Playing())
 			P_RestoreMusic(&players[consoleplayer]);
-		else if ((cv_musicpref.value || digital_disabled) && S_MIDIExists("_clear"))
+		else if ((cv_musicpref.value || digital_disabled) && S_MIDIExists("_clear")) /* STAR NOTE: i'll leave this here for now too (titlemapinaction && menuactive) */
 			S_ChangeMusicInternal("_clear", false);
 	}
 	else
@@ -2610,7 +2714,7 @@ void GameMIDIMusic_OnChange(void)
 			{
 				if (Playing())
 					P_RestoreMusic(&players[consoleplayer]);
-				else
+				else /* STAR NOTE: i'll leave this here for now as well (titlemapinaction && menuactive) */
 					S_ChangeMusicInternal("_clear", false);
 			}
 		}
@@ -2625,7 +2729,7 @@ void MusicPref_OnChange(void)
 
 	if (Playing())
 		P_RestoreMusic(&players[consoleplayer]);
-	else if (S_PrefAvailable(cv_musicpref.value, "_clear"))
+	else if (S_PrefAvailable(cv_musicpref.value, "_clear")) /* STAR NOTE: i'll also leave this here for now, just in case (titlemapinaction && menuactive) */
 		S_ChangeMusicInternal("_clear", false);
 }
 

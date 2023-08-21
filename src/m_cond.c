@@ -21,6 +21,13 @@
 #include "r_skins.h" // numskins
 #include "r_draw.h" // R_GetColorByName
 
+// STAR STUFF //
+#include "STAR/star_vars.h"
+
+#include "d_main.h"
+#include "m_menu.h" // menu coloring
+// END OF THAT //
+
 // Map triggers for linedef executors
 // 32 triggers, one bit each
 UINT32 unlocktriggers;
@@ -93,6 +100,12 @@ void M_ClearSecrets(void)
 
 	// Re-unlock any always unlocked things
 	M_SilentUpdateUnlockablesAndEmblems();
+
+	// DO SOME STAR STUFF //
+	(eastermode ?
+		(foundeggs = collectedmapeggs = currenteggs = numMapEggs = 0) :
+		(TOTALEGGS = foundeggs = collectedmapeggs = currenteggs = numMapEggs = 0));
+	// END SOME STAR STUFF //
 }
 
 // ----------------------
@@ -246,7 +259,7 @@ UINT8 M_UpdateUnlockablesAndExtraEmblems(void)
 
 		strcat(slashed, cechoText);
 
-		HU_SetCEchoFlags(V_YELLOWMAP|V_RETURN8);
+		HU_SetCEchoFlags(menuColor[cv_menucolor.value]|V_RETURN8);
 		HU_SetCEchoDuration(6);
 		HU_DoCEcho(slashed);
 		return true;

@@ -55,6 +55,15 @@
 #include "hardware/hw_main.h"
 #endif
 
+#ifdef HAVE_DISCORDRPC
+#include "discord.h"
+#endif
+
+// STAR STUFF //
+#include "m_menu.h"
+#include "STAR/star_vars.h"
+// END OF THAT //
+
 #if 0
 static void P_NukeAllPlayers(player_t *player);
 #endif
@@ -1331,7 +1340,11 @@ void P_GiveCoopLives(player_t *player, INT32 numlives, boolean sound)
 void P_DoSuperTransformation(player_t *player, boolean giverings)
 {
 	player->powers[pw_super] = 1;
-	if (!(mapheaderinfo[gamemap-1]->levelflags & LF_NOSSMUSIC) && P_IsLocalPlayer(player))
+	if ((!(mapheaderinfo[gamemap-1]->levelflags & LF_NOSSMUSIC) && P_IsLocalPlayer(player))
+#ifdef APRIL_FOOLS
+		&& (!cv_ultimatemode.value) // STAR NOTE: i was here lol
+#endif
+	)
 		P_PlayJingle(player, JT_SUPER);
 
 	S_StartSound(NULL, sfx_supert); //let all players hear it -mattw_cfi
@@ -1493,7 +1506,8 @@ void P_PlayLivesJingle(player_t *player)
 
 	if (mariomode)
 		S_StartSound(NULL, sfx_marioa);
-	else if (use1upSound || cv_1upsound.value)
+	else if ((use1upSound || cv_1upsound.value)
+			|| (jukeboxMusicPlaying)) // STAR NOTE: i was also here lol
 		S_StartSound(NULL, sfx_oneup);
 	else
 	{
@@ -1507,6 +1521,10 @@ void P_PlayLivesJingle(player_t *player)
 
 void P_PlayJingle(player_t *player, jingletype_t jingletype)
 {
+	// STAR STUFF //
+	strcpy(jingleinfo[JT_GOVER].musname, gameoverMusic[cv_gameovermusic.value]);
+	// END OF THAT //
+
 	const char *musname = jingleinfo[jingletype].musname;
 	UINT16 musflags = 0;
 	boolean looping = jingleinfo[jingletype].looping;
@@ -1528,7 +1546,8 @@ void P_PlayJingle(player_t *player, jingletype_t jingletype)
 void P_PlayJingleMusic(player_t *player, const char *musname, UINT16 musflags, boolean looping, UINT16 status)
 {
 	// If gamestate != GS_LEVEL, always play the jingle (1-up intermission)
-	if (gamestate == GS_LEVEL && player && !P_IsLocalPlayer(player))
+	if ((gamestate == GS_LEVEL && player && !P_IsLocalPlayer(player))
+		|| (jukeboxMusicPlaying)) // STAR NOTE: i was here as well
 		return;
 
 	S_RetainMusic(musname, musflags, looping, 0, status);
@@ -1620,7 +1639,10 @@ void P_RestoreMusic(player_t *player)
 	if (!P_IsLocalPlayer(player)) // Only applies to a local player
 		return;
 
-	S_SpeedMusic(1.0f);
+	// STAR STUFF //
+	if (!jukeboxMusicPlaying)
+		S_SpeedMusic(1.0f);
+	// END THAT //
 
 	// Jingles have a priority in this order, so follow it
 	// and as a default case, go down the music stack.
@@ -1630,8 +1652,12 @@ void P_RestoreMusic(player_t *player)
 		return;
 
 	// Super
-	else if (player->powers[pw_super] && !(mapheaderinfo[gamemap-1]->levelflags & LF_NOSSMUSIC)
+	else if ((player->powers[pw_super] && !(mapheaderinfo[gamemap-1]->levelflags & LF_NOSSMUSIC)
 		&& !S_RecallMusic(JT_SUPER, false))
+#ifdef APRIL_FOOLS
+		&& (!cv_ultimatemode.value) // STAR NOTE: i was here too :)
+#endif
+	)
 		P_PlayJingle(player, JT_SUPER);
 
 	// Invulnerability
@@ -1650,7 +1676,10 @@ void P_RestoreMusic(player_t *player)
 		S_StartCaption(sfx_None, -1, player->powers[pw_sneakers]);
 		if (mapheaderinfo[gamemap-1]->levelflags & LF_SPEEDMUSIC)
 		{
-			S_SpeedMusic(1.4f);
+			// STAR STUFF //
+			if (!jukeboxMusicPlaying)
+				S_SpeedMusic(1.4f);
+			// END THIS //
 			if (!S_RecallMusic(JT_MASTER, true))
 				S_ChangeMusicEx(mapmusname, mapmusflags, true, mapmusposition, 0, 0);
 		}
@@ -4330,15 +4359,25 @@ static void P_DoSuperStuff(player_t *player)
 //
 boolean P_SuperReady(player_t *player)
 {
-	if (!player->powers[pw_super]
-	&& !player->powers[pw_invulnerability]
+	// STAR NOTE: i edited some parts of this function, just so you know
+	if ((!player->powers[pw_super]
+	&& ((!ShieldBlocksTransformation && !player->powers[pw_invulnerability]) || (ShieldBlocksTransformation))
 	&& !player->powers[pw_tailsfly]
 	&& (player->charflags & SF_SUPER)
 	&& (player->pflags & PF_JUMPED)
-	&& !(player->powers[pw_shield] & SH_NOSTACK)
+	&& ((!(player->powers[pw_shield] & SH_NOSTACK) && !ShieldBlocksTransformation) || (ShieldBlocksTransformation))
 	&& !(maptol & TOL_NIGHTS)
 	&& ALL7EMERALDS(emeralds)
 	&& (player->rings >= 50))
+
+	|| (
+#ifdef APRIL_FOOLS
+		cv_ultimatemode.value
+#else
+		(EnableEasterEggHuntBonuses && currenteggs == TOTALEGGS && ALL7EMERALDS(emeralds) && player->rings >= TOTALEGGS)
+#endif
+			&& player->rings && !player->powers[pw_super] && !netgame)
+	)
 		return true;
 
 	return false;
@@ -5026,7 +5065,7 @@ static boolean P_PlayerShieldThink(player_t *player, ticcmd_t *cmd, mobj_t *lock
 {
 	mobj_t *lockonshield = NULL;
 
-	if ((player->powers[pw_shield] & SH_NOSTACK) && !player->powers[pw_super] && !(player->pflags & PF_SPINDOWN)
+	if ((player->powers[pw_shield] & SH_NOSTACK) && (!player->powers[pw_super] || (player->powers[pw_super] && cv_armageddonnukesuper.value && (player->powers[pw_shield] & SH_NOSTACK) == SH_ARMAGEDDON)) && !(player->pflags & PF_SPINDOWN) // STAR NOTE: i was here by the way
 		&& ((!(player->pflags & PF_THOKKED) || (((player->powers[pw_shield] & SH_NOSTACK) == SH_BUBBLEWRAP || (player->powers[pw_shield] & SH_NOSTACK) == SH_ATTRACT) && player->secondjump == UINT8_MAX) ))) // thokked is optional if you're bubblewrapped / 3dblasted
 	{
 		if ((player->powers[pw_shield] & SH_NOSTACK) == SH_ATTRACT && !(player->charflags & SF_NOSHIELDABILITY))
@@ -5054,6 +5093,10 @@ static boolean P_PlayerShieldThink(player_t *player, ticcmd_t *cmd, mobj_t *lock
 		}
 		if ((!(player->charflags & SF_NOSHIELDABILITY)) && (cmd->buttons & BT_SPIN && !LUA_HookPlayer(player, HOOK(ShieldSpecial)))) // Spin button effects
 		{
+			// STAR NOTE: Make sure we're not super, so we don't accidentally run anything here
+			if (ShieldBlocksTransformation && P_SuperReady(player))
+				return false;
+
 			// Force stop
 			if ((player->powers[pw_shield] & ~(SH_FORCEHP|SH_STACK)) == SH_FORCE)
 			{
@@ -5172,14 +5215,56 @@ static void P_DoJumpStuff(player_t *player, ticcmd_t *cmd)
 			;
 		else if (P_PlayerShieldThink(player, cmd, lockonthok, visual))
 			;
-		else if ((cmd->buttons & BT_SPIN))
+		
+		// STAR NOTE: i was here, but this is kinda a mess lol //
+		else if (((cmd->buttons & BT_SPIN))
+			|| (
+#ifdef APRIL_FOOLS
+				cv_ultimatemode.value
+#else
+				(EnableEasterEggHuntBonuses && currenteggs == TOTALEGGS)
+#endif
+					&& (cmd->buttons & BT_JUMP) && !netgame && !(players[consoleplayer].powers[pw_super]))
+		)
 		{
-			if (!(player->pflags & PF_SPINDOWN) && P_SuperReady(player))
+			if ((!(player->pflags & PF_SPINDOWN) && P_SuperReady(player))
+
+				|| (
+#ifdef APRIL_FOOLS
+				cv_ultimatemode.value
+#else
+				(EnableEasterEggHuntBonuses && currenteggs == TOTALEGGS)
+#endif
+					&& !netgame && P_SuperReady(player))
+			)
 			{
-				// If you can turn super and aren't already,
-				// and you don't have a shield, do it!
-				P_DoSuperTransformation(player, false);
+				if (
+#ifdef APRIL_FOOLS
+					cv_ultimatemode.value
+#else
+					(EnableEasterEggHuntBonuses && currenteggs == TOTALEGGS)
+#endif
+						&& !netgame)
+				{
+					if (gametyperules & GTR_POWERSTONES)
+					{
+						if (players[consoleplayer].powers[pw_emeralds] != 127)
+							players[consoleplayer].powers[pw_emeralds] = ((EMERALD7)*2)-1;
+					}
+					else
+					{
+						if (emeralds != 127)
+							emeralds = ((EMERALD7)*2)-1;
+					}
+
+					if (!(player->charflags & SF_SUPER))
+						player->charflags += SF_SUPER;
+				}
+
+				P_DoSuperTransformation(player, false); // If you can turn super and aren't already, do it!
 			}
+			// END OF THE STAR NOTE, BY THE WAY //
+
 			else if (!LUA_HookPlayer(player, HOOK(JumpSpinSpecial)))
 				switch (player->charability)
 				{
@@ -9476,6 +9561,25 @@ void P_RestoreMultiMusic(player_t *player)
 // Decrease POV height to floor height.
 //
 
+// STAR STUFF //
+const char gameoverMusic[7][7] = {
+	[0] = "_gover",
+	
+	"_govr1",
+	"_govrc",
+	"_govr3",
+	"_govrm",
+	
+	"_govrs",
+	"_govrg",
+};
+
+const INT32 gameoverMusicTics[7] = {
+	[1] = 15*TICRATE,
+	[6] = 6*TICRATE,
+};
+// END OF THAT //
+
 static void P_DeathThink(player_t *player)
 {
 	INT32 j = MAXPLAYERS;
@@ -9483,18 +9587,28 @@ static void P_DeathThink(player_t *player)
 	ticcmd_t *cmd = &player->cmd;
 	player->deltaviewheight = 0;
 
+	// STAR STUFF YAY //
+#ifdef APRIL_FOOLS
+	if (cv_ultimatemode.value && ultimatemode && !netgame)
+		return; // it's funnier this way
+#endif
+	// END OF STAR STUFF YAY //
+
 	if (player->deadtimer < INT32_MAX)
 		player->deadtimer++;
 
 	if (player->bot == BOT_2PAI || player->bot == BOT_2PHUMAN) // don't allow followbots to do any of the below, B_CheckRespawn does all they need for respawning already
 		goto notrealplayer;
 
-	// continue logic
+	// continue logic (STAR NOTE: contains timeover now lol)
 	if (!(netgame || multiplayer) && player->lives <= 0 && player == &players[consoleplayer]) //Extra players in SP can't be allowed to continue or end game
 	{
 		if (player->deadtimer > (3*TICRATE) && (cmd->buttons & BT_SPIN || cmd->buttons & BT_JUMP) && (!continuesInSession || player->continues > 0))
 			G_UseContinue();
-		else if (player->deadtimer >= gameovertics)
+		else if ((!timeover && player->deadtimer >= gameovertics)
+			|| (timeover && ((!gameoverMusicTics[cv_gameovermusic.value] && player->deadtimer >= gameovertics)
+			|| (gameoverMusicTics[cv_gameovermusic.value] && player->deadtimer >= gameoverMusicTics[cv_gameovermusic.value]))))
+
 			G_UseContinue(); // Even if we don't have one this handles ending the game
 	}
 
@@ -9552,8 +9666,13 @@ static void P_DeathThink(player_t *player)
 				}
 			}
 
-			// Single player auto respawn
-			if (!(netgame || multiplayer) && player->deadtimer > TICRATE<<1)
+			// Single player auto respawn (STAR NOTE: this includes timeover now too lol)
+			if (!(netgame || multiplayer)
+				&& ((!timeover && player->deadtimer > TICRATE<<1)
+				
+				|| (timeover && ((!gameoverMusicTics[cv_gameovermusic.value] && player->deadtimer >= gameovertics)
+				|| (gameoverMusicTics[cv_gameovermusic.value] && player->deadtimer >= gameoverMusicTics[cv_gameovermusic.value])))))
+
 				player->playerstate = PST_REBORN;
 		}
 	}
@@ -10445,6 +10564,10 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 
 boolean P_SpectatorJoinGame(player_t *player)
 {
+	// STAR STUFF //
+	boolean discordReturnTrue = true;
+	// END OF THE CONVIENENCE //
+
 	if (!G_CoopGametype() && !cv_allowteamchange.value)
 	{
 		if (P_IsLocalPlayer(player))
@@ -10508,7 +10631,9 @@ boolean P_SpectatorJoinGame(player_t *player)
 		else if (changeto == 2)
 			CONS_Printf(M_GetText("%s switched to the %c%s%c.\n"), player_names[player-players], '\x84', M_GetText("Blue team"), '\x80');
 
-		return true; // no more player->mo, cannot continue.
+		// STAR STUFF //
+		goto STAR_return; // no more player->mo, cannot continue.
+		// END THAT //
 	}
 	// Joining in game from firing.
 	else
@@ -10550,7 +10675,10 @@ boolean P_SpectatorJoinGame(player_t *player)
 
 			if (!G_CoopGametype())
 				CONS_Printf(M_GetText("%s entered the game.\n"), player_names[player-players]);
-			return true; // no more player->mo, cannot continue.
+
+			// STAR STUFF, AGAIN //
+			goto STAR_return; // no more player->mo, cannot continue.
+			// END IT, AGAIN //
 		}
 		else
 		{
@@ -10558,8 +10686,27 @@ boolean P_SpectatorJoinGame(player_t *player)
 				CONS_Printf(M_GetText("You must wait until next round to enter the game.\n"));
 			player->powers[pw_flashing] += 2*TICRATE; //to prevent message spam.
 		}
+
+		// STAR STUFF, AGAIN AGAIN //
+		discordReturnTrue = false;
+		goto STAR_return; // return, but don't return true
+		// END THAT, AGAIN AGAIN //
 	}
 	return false;
+
+// STAR STUFF, ALMOST OVER //
+STAR_return:
+	if (automapactive)
+	{
+		CONS_Alert(CONS_NOTICE, "A node has switched teams, closing the automap to prevent a crash...\n");
+		AM_Stop();
+	}
+
+#ifdef HAVE_DISCORDRPC
+	DRPC_UpdatePresence();
+#endif
+	return discordReturnTrue;
+// END THAT MESS, WE'RE FINALLY OVER //
 }
 
 // the below is first person only, if you're curious. check out P_CalcChasePostImg in p_mobj.c for chasecam

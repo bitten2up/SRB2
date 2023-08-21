@@ -57,6 +57,16 @@
 #include "f_finale.h"
 #endif
 
+#ifdef HAVE_DISCORDRPC
+// DISCORD STUFF //
+#include "discord.h"
+// END THIS PLEASE //
+#endif
+
+// STAR STUFF //
+#include "STAR/star_vars.h"
+// END THAT //
+
 //
 // NETWORKING
 //
@@ -306,7 +316,7 @@ static void D_FreeTextcmd(tic_t tic)
 		{
 			textcmdplayer_t *textcmdplayer = textcmdtic->playercmds[i];
 
-			while (textcmdplayer)
+			while (textcmdplayer > (textcmdplayer_t*)255) // STAR NOTE: LEAVEBUG HACK
 			{
 				textcmdplayer_t *tcpnext = textcmdplayer->next;
 				Z_Free(textcmdplayer);
@@ -325,13 +335,18 @@ static UINT8* D_GetExistingTextcmd(tic_t tic, INT32 playernum)
 	textcmdtic_t *textcmdtic = textcmds[tic & (TEXTCMD_HASH_SIZE - 1)];
 	while (textcmdtic && textcmdtic->tic != tic) textcmdtic = textcmdtic->next;
 
+	// STAR NOTE: THIS ENITRE BLOCK HAS BEEN EDITED WITH THE LEAVEBUG FIX //
 	// Do we have an entry for the tic? If so, look for player.
-	if (textcmdtic)
+	if (textcmdtic && textcmdtic->playercmds)
 	{
+		textcmdplayer_t *limit = (textcmdplayer_t*)255;
 		textcmdplayer_t *textcmdplayer = textcmdtic->playercmds[playernum & (TEXTCMD_HASH_SIZE - 1)];
-		while (textcmdplayer && textcmdplayer->playernum != playernum) textcmdplayer = textcmdplayer->next;
+		while (textcmdplayer > limit && textcmdplayer->playernum != playernum) textcmdplayer = textcmdplayer->next;
 
-		if (textcmdplayer) return textcmdplayer->cmd;
+		if (textcmdplayer > limit)
+			return textcmdplayer->cmd;
+		else if (textcmdplayer)
+			CONS_Alert(CONS_WARNING, "textcmdplayer is %p: CRASH AVERTED\n", textcmdplayer);
 	}
 
 	return NULL;
@@ -540,34 +555,7 @@ static cl_mode_t cl_mode = CL_SEARCHING;
 
 static UINT16 cl_lastcheckedfilecount = 0;	// used for full file list
 
-#ifndef NONET
-#define SNAKE_SPEED 5
-
-#define SNAKE_NUM_BLOCKS_X 20
-#define SNAKE_NUM_BLOCKS_Y 10
-#define SNAKE_BLOCK_SIZE 12
-#define SNAKE_BORDER_SIZE 12
-
-#define SNAKE_MAP_WIDTH  (SNAKE_NUM_BLOCKS_X * SNAKE_BLOCK_SIZE)
-#define SNAKE_MAP_HEIGHT (SNAKE_NUM_BLOCKS_Y * SNAKE_BLOCK_SIZE)
-
-#define SNAKE_LEFT_X ((BASEVIDWIDTH - SNAKE_MAP_WIDTH) / 2 - SNAKE_BORDER_SIZE)
-#define SNAKE_RIGHT_X (SNAKE_LEFT_X + SNAKE_MAP_WIDTH + SNAKE_BORDER_SIZE * 2 - 1)
-#define SNAKE_BOTTOM_Y (BASEVIDHEIGHT - 48)
-#define SNAKE_TOP_Y (SNAKE_BOTTOM_Y - SNAKE_MAP_HEIGHT - SNAKE_BORDER_SIZE * 2 + 1)
-
-enum snake_bonustype_s {
-	SNAKE_BONUS_NONE = 0,
-	SNAKE_BONUS_SLOW,
-	SNAKE_BONUS_FAST,
-	SNAKE_BONUS_GHOST,
-	SNAKE_BONUS_NUKE,
-	SNAKE_BONUS_SCISSORS,
-	SNAKE_BONUS_REVERSE,
-	SNAKE_BONUS_EGGMAN,
-	SNAKE_NUM_BONUSES,
-};
-
+// STAR NOTE: i edited some snake stuff, some of it is handled in d_clisrv.h :) //
 static const char *snake_bonuspatches[] = {
 	NULL,
 	"DL_SLOW",
@@ -592,33 +580,9 @@ static const char *snake_backgrounds[] = {
 	"RVZGRS04",
 };
 
-typedef struct snake_s
-{
-	boolean paused;
-	boolean pausepressed;
-	tic_t time;
-	tic_t nextupdate;
-	boolean gameover;
-	UINT8 background;
+snake_t *snake = NULL;
 
-	UINT16 snakelength;
-	enum snake_bonustype_s snakebonus;
-	tic_t snakebonustime;
-	UINT8 snakex[SNAKE_NUM_BLOCKS_X * SNAKE_NUM_BLOCKS_Y];
-	UINT8 snakey[SNAKE_NUM_BLOCKS_X * SNAKE_NUM_BLOCKS_Y];
-	UINT8 snakedir[SNAKE_NUM_BLOCKS_X * SNAKE_NUM_BLOCKS_Y];
-
-	UINT8 applex;
-	UINT8 appley;
-
-	enum snake_bonustype_s bonustype;
-	UINT8 bonusx;
-	UINT8 bonusy;
-} snake_t;
-
-static snake_t *snake = NULL;
-
-static void Snake_Initialise(void)
+void Snake_Initialise(void)
 {
 	if (!snake)
 		snake = malloc(sizeof(snake_t));
@@ -657,7 +621,7 @@ event_t *snakejoyevents[MAXEVENTS];
 UINT16 joyeventcount = 0;
 
 // I'm screaming the hack is clean - ashi
-static boolean Snake_Joy_Grabber(event_t *ev)
+boolean Snake_Joy_Grabber(event_t *ev)
 {
 	if (ev->type == ev_joystick  && ev->key == 0)
 	{
@@ -690,7 +654,7 @@ static void Snake_FindFreeSlot(UINT8 *freex, UINT8 *freey, UINT8 headx, UINT8 he
 	*freey = y;
 }
 
-static void Snake_Handle(void)
+void Snake_Handle(void)
 {
 	UINT8 x, y;
 	UINT8 oldx, oldy;
@@ -986,7 +950,7 @@ static void Snake_Handle(void)
 	}
 }
 
-static void Snake_Draw(void)
+void Snake_Draw(void)
 {
 	INT16 i;
 
@@ -1094,11 +1058,12 @@ static void Snake_Draw(void)
 		);
 }
 
+#ifndef NONET
 static void CL_DrawConnectionStatusBox(void)
 {
 	M_DrawTextBox(BASEVIDWIDTH/2-128-8, BASEVIDHEIGHT-16-8, 32, 1);
 	if (cl_mode != CL_CONFIRMCONNECT)
-		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-16, V_YELLOWMAP, "Press ESC to abort");
+		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-16, menuColor[cv_menucolor.value], "Press ESC to abort");
 }
 
 //
@@ -1112,6 +1077,10 @@ static inline void CL_DrawConnectionStatus(void)
 
 	// Draw background fade
 	V_DrawFadeScreen(0xFF00, 16); // force default
+
+	// DO STAR STUFF //
+	STAR_SetProblematicCommandsForNetgames();
+	// DID STAR STUFF //
 
 	if (cl_mode != CL_DOWNLOADFILES && cl_mode != CL_LOADFILES)
 	{
@@ -1181,7 +1150,7 @@ static inline void CL_DrawConnectionStatus(void)
 				cltext = M_GetText("Connecting to server...");
 				break;
 		}
-		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, V_YELLOWMAP, cltext);
+		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, menuColor[cv_menucolor.value], cltext);
 	}
 	else
 	{
@@ -1191,7 +1160,7 @@ static inline void CL_DrawConnectionStatus(void)
 			INT32 loadcompletednum = 0;
 			INT32 i;
 
-			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-16, V_YELLOWMAP, "Press ESC to abort");
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-16, menuColor[cv_menucolor.value], "Press ESC to abort");
 
 			//ima just count files here
 			if (fileneeded)
@@ -1202,7 +1171,7 @@ static inline void CL_DrawConnectionStatus(void)
 			}
 
 			// Loading progress
-			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, V_YELLOWMAP, "Loading server addons...");
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, menuColor[cv_menucolor.value], "Loading server addons...");
 			totalfileslength = (INT32)((loadcompletednum/(double)(fileneedednum)) * 256);
 			M_DrawTextBox(BASEVIDWIDTH/2-128-8, BASEVIDHEIGHT-16-8, 32, 1);
 			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-16, 256, 8, 111);
@@ -1254,7 +1223,7 @@ static inline void CL_DrawConnectionStatus(void)
 				strncpy(tempname, filename, sizeof(tempname)-1);
 			}
 
-			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, V_YELLOWMAP,
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, menuColor[cv_menucolor.value],
 				va(M_GetText("Downloading \"%s\""), tempname));
 			V_DrawString(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-16, V_20TRANS|V_MONOSPACE,
 				va(" %4uK/%4uK",fileneeded[lastfilenum].currentsize>>10,file->totalsize>>10));
@@ -1267,7 +1236,7 @@ static inline void CL_DrawConnectionStatus(void)
 				Snake_Draw();
 
 			CL_DrawConnectionStatusBox();
-			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, V_YELLOWMAP,
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, menuColor[cv_menucolor.value],
 				M_GetText("Waiting to download files..."));
 		}
 	}
@@ -1506,6 +1475,20 @@ static boolean SV_SendServerConfig(INT32 node)
 	netbuffer->u.servercfg.gamestate = (UINT8)gamestate;
 	netbuffer->u.servercfg.gametype = (UINT8)gametype;
 	netbuffer->u.servercfg.modifiedgame = (UINT8)modifiedgame;
+
+	// STAR STUFF YAY //
+	netbuffer->u.servercfg.tsourdt3rd = (boolean)tsourdt3rd;
+
+	netbuffer->u.servercfg.tsourdt3rdmajorversion = TSoURDt3rd_CurrentMajorVersion();
+	netbuffer->u.servercfg.tsourdt3rdminorversion = TSoURDt3rd_CurrentMinorVersion();
+	netbuffer->u.servercfg.tsourdt3rdsubversion = TSoURDt3rd_CurrentSubversion();
+
+	// DISCORD STUFF //
+	netbuffer->u.servercfg.maxplayer = (UINT8)(min((dedicated ? MAXPLAYERS-1 : MAXPLAYERS), cv_maxplayers.value));
+	netbuffer->u.servercfg.allownewplayer = cv_allownewplayer.value;
+	netbuffer->u.servercfg.discordinvites = cv_discordinvites.value;
+	// END THAT PLEASE //
+	// END THE STAR STUFF TOO //
 
 	memcpy(netbuffer->u.servercfg.server_context, server_context, 8);
 
@@ -1771,6 +1754,15 @@ static void CL_ReloadReceivedSavegame(void)
 static void SendAskInfo(INT32 node)
 {
 	const tic_t asktime = I_GetTime();
+
+	// HOLEPUNCHING STUFF //
+	if (node != 0 && node != BROADCASTADDR &&
+			cv_rendezvousserver.string[0])
+	{
+		I_NetRequestHolePunch(node);
+	}
+	// END THAT STUFF //
+
 	netbuffer->packettype = PT_ASKINFO;
 	netbuffer->u.askinfo.version = VERSION;
 	netbuffer->u.askinfo.time = (tic_t)LONG(asktime);
@@ -2057,6 +2049,25 @@ static boolean CL_FinishedFileList(void)
 		), NULL, MM_NOTHING);
 		return false;
 	}
+
+	// STAR STUFF //
+	else if (i == 5) // you've autoloaded some game changing mods
+	{
+		D_QuitNetGame();
+		CL_Reset();
+		D_StartTitle();
+		M_StartMessage(M_GetText(
+			"You've autoloaded some game changing mods.\n\n"
+			"To play on this server, remove your\n"
+			"autoload configuration file and restart SRB2.\n"
+			"Afterwards, SRB2 will automatically add\n"
+			"everything you need when you join.\n\n"
+			"Press ESC\n"
+		), NULL, MM_NOTHING);
+		return false;
+	}
+	// END OF THAT //
+
 	else if (i == 1)
 	{
 		if (serverisfull)
@@ -2782,11 +2793,22 @@ static void Command_connect(void)
 		return;
 	}
 
+	// STAR STUFF //
+	M_ClearMenus(true);
+	if (demoplayback && titledemo)
+		G_CheckDemoStatus();
+	
 	if (Playing() || titledemo)
 	{
-		CONS_Printf(M_GetText("You cannot connect while in a game. End this game first.\n"));
-		return;
+		if (netgame)
+		{
+			D_QuitNetGame();
+			CL_Reset();
+		}
+
+		D_StartTitle();
 	}
+	// DONE WITH THAT //
 
 	// modified game check: no longer handled
 	// we don't request a restart unless the filelist differs
@@ -3502,15 +3524,56 @@ static void Got_KickCmd(UINT8 **p, INT32 playernum)
 	}
 	else
 		CL_RemovePlayer(pnum, kickreason);
+
+	// DISCORD STUFF //
+	S_StartSound(NULL, ((msg == KICK_MSG_PLAYER_QUIT) ? STAR_LeaveSFX : STAR_SynchFailureSFX));
+	// I LIKE YOUR FUNNY WORDS, MAGIC FUNCTION //
 }
+
+// STAR STUFF //
+static void Tsourdt3rdInfo_OnChange(void)
+{
+	UINT8 buf[7];
+	UINT8 *p = buf;
+	
+	UINT8 currentmajorversion;
+	UINT8 currentminorversion;
+	UINT8 currentsubversion;
+
+	UINT8 maxplayer;
+
+	if (!server)
+		return;
+
+	currentmajorversion = TSoURDt3rd_CurrentMajorVersion();
+	currentminorversion = TSoURDt3rd_CurrentMinorVersion();
+	currentsubversion = TSoURDt3rd_CurrentSubversion();
+
+	maxplayer = (UINT8)(min((dedicated ? MAXPLAYERS-1 : MAXPLAYERS), cv_maxplayers.value));
+
+	WRITEUINT8(p, tsourdt3rd);
+
+	WRITEUINT8(p, currentmajorversion);
+	WRITEUINT8(p, currentminorversion);
+	WRITEUINT8(p, currentsubversion);
+
+	// DISCORD STUFF //
+	WRITEUINT8(p, maxplayer);
+	WRITEUINT8(p, cv_allownewplayer.value);
+	WRITEUINT8(p, cv_discordinvites.value);
+	// YOU GET THE GIST //
+
+	SendNetXCmd(XD_TSOURDT3RD, &buf, 7);
+}
+// END THAT. LITERALLY //
 
 static CV_PossibleValue_t netticbuffer_cons_t[] = {{0, "MIN"}, {3, "MAX"}, {0, NULL}};
 consvar_t cv_netticbuffer = CVAR_INIT ("netticbuffer", "1", CV_SAVE, netticbuffer_cons_t, NULL);
 
-consvar_t cv_allownewplayer = CVAR_INIT ("allowjoin", "On", CV_SAVE|CV_NETVAR|CV_ALLOWLUA, CV_OnOff, NULL);
+consvar_t cv_allownewplayer = CVAR_INIT ("allowjoin", "On", CV_SAVE|CV_NETVAR|CV_CALL|CV_ALLOWLUA, CV_OnOff, Tsourdt3rdInfo_OnChange);
 consvar_t cv_joinnextround = CVAR_INIT ("joinnextround", "Off", CV_SAVE|CV_NETVAR, CV_OnOff, NULL); /// \todo not done
 static CV_PossibleValue_t maxplayers_cons_t[] = {{2, "MIN"}, {32, "MAX"}, {0, NULL}};
-consvar_t cv_maxplayers = CVAR_INIT ("maxplayers", "8", CV_SAVE|CV_NETVAR|CV_ALLOWLUA, maxplayers_cons_t, NULL);
+consvar_t cv_maxplayers = CVAR_INIT ("maxplayers", "8", CV_SAVE|CV_NETVAR|CV_CALL|CV_ALLOWLUA, maxplayers_cons_t, Tsourdt3rdInfo_OnChange);
 static CV_PossibleValue_t joindelay_cons_t[] = {{1, "MIN"}, {3600, "MAX"}, {0, "Off"}, {0, NULL}};
 consvar_t cv_joindelay = CVAR_INIT ("joindelay", "10", CV_SAVE|CV_NETVAR, joindelay_cons_t, NULL);
 static CV_PossibleValue_t rejointimeout_cons_t[] = {{1, "MIN"}, {60 * FRACUNIT, "MAX"}, {0, "Off"}, {0, NULL}};
@@ -3528,6 +3591,12 @@ consvar_t cv_noticedownload = CVAR_INIT ("noticedownload", "Off", CV_SAVE|CV_NET
 // Speed of file downloading (in packets per tic)
 static CV_PossibleValue_t downloadspeed_cons_t[] = {{1, "MIN"}, {300, "MAX"}, {0, NULL}};
 consvar_t cv_downloadspeed = CVAR_INIT ("downloadspeed", "16", CV_SAVE|CV_NETVAR, downloadspeed_cons_t, NULL);
+
+// DISCORD STUFF //
+// Here for Dedicated Servers or Something for Some Reason idk
+static CV_PossibleValue_t discordinvites_cons_t[] = {{0, "Server"}, {1, "Admins"}, {2, "Everyone"}, {0, NULL}};
+consvar_t cv_discordinvites = CVAR_INIT ("discordinvites", "Everyone", CV_SAVE|CV_CALL, discordinvites_cons_t, Tsourdt3rdInfo_OnChange);
+// END THIS MESS //
 
 static void Got_AddPlayer(UINT8 **p, INT32 playernum);
 
@@ -3707,6 +3776,10 @@ void D_QuitNetGame(void)
 	D_CloseConnection();
 	ClearAdminPlayers();
 
+	// STAR STUFF ENGAGED //
+	STAR_ResetProblematicCommandsAfterNetgames();
+	// STAR STUFF DISENGAGED //
+
 	DEBFILE("===========================================================================\n"
 	        "                         Log finish\n"
 	        "===========================================================================\n");
@@ -3753,6 +3826,14 @@ static void Got_AddPlayer(UINT8 **p, INT32 playernum)
 	newplayernum &= ~0x80;
 
 	rejoined = playeringame[newplayernum];
+
+	// DO STAR STUFF //
+	if (automapactive)
+	{
+		CONS_Alert(CONS_NOTICE, "A new node has joined, closing the automap to prevent a crash...\n");
+		AM_Stop();
+	}
+	// END THAT //
 
 	if (!rejoined)
 	{
@@ -3838,6 +3919,11 @@ static void Got_AddPlayer(UINT8 **p, INT32 playernum)
 	{
 		char joinmsg[256];
 
+		// DISCORD STUFF YAY //
+		if (node != mynode)
+			S_StartSound(NULL, STAR_JoinSFX);
+		// MEEP //
+
 		if (rejoined)
 			strcpy(joinmsg, M_GetText("\x82*%s has rejoined the game (player %d)"));
 		else
@@ -3860,6 +3946,10 @@ static void Got_AddPlayer(UINT8 **p, INT32 playernum)
 
 	if (!rejoined)
 		LUA_HookInt(newplayernum, HOOK(PlayerJoin));
+
+#ifdef HAVE_DISCORDRPC
+	DRPC_UpdatePresence();
+#endif
 }
 
 static boolean SV_AddWaitingPlayers(const char *name, const char *name2)
@@ -4238,7 +4328,7 @@ static void HandleServerInfo(SINT8 node)
 }
 #endif
 
-static void PT_WillResendGamestate(void)
+void PT_WillResendGamestate(void)
 {
 #ifndef NONET
 	char tmpsave[256];
@@ -4408,6 +4498,29 @@ static void HandlePacketFromAwayNode(SINT8 node)
 				modifiedgame = netbuffer->u.servercfg.modifiedgame;
 				memcpy(server_context, netbuffer->u.servercfg.server_context, 8);
 			}
+
+			// STAR STUFF //
+			TSoURDt3rdInfo.serverUsesTSoURDt3rd = ((netbuffer->u.servercfg.tsourdt3rd > 1 || netbuffer->u.servercfg.tsourdt3rd < 0) ? 0 : 1);
+			
+			if (netgame && !server)
+				(TSoURDt3rdInfo.serverUsesTSoURDt3rd ? 
+					(CONS_Printf("Server uses TSoURDt3rd, running features...\n")) :
+					(CONS_Printf("Server doesn't use TSoURDt3rd or is using an outdated TSoURDt3rd, working around this...\n")));
+
+			TSoURDt3rdInfo.majorVersion 			= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? netbuffer->u.servercfg.tsourdt3rdmajorversion : 0);
+			TSoURDt3rdInfo.minorVersion 			= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? netbuffer->u.servercfg.tsourdt3rdminorversion : 0);
+			TSoURDt3rdInfo.subVersion 				= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? netbuffer->u.servercfg.tsourdt3rdsubversion : 0);
+
+			TSoURDt3rdInfo.serverTSoURDt3rdVersion 	= STAR_CombineNumbers(3, TSoURDt3rdInfo.majorVersion, TSoURDt3rdInfo.minorVersion, TSoURDt3rdInfo.subVersion);
+
+#ifdef HAVE_DISCORDRPC
+			// DISCORD STUFF //
+			discordInfo.maxPlayers 					= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? netbuffer->u.servercfg.maxplayer : (UINT8)cv_maxplayers.value);
+			discordInfo.joinsAllowed 				= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? netbuffer->u.servercfg.allownewplayer : (boolean)cv_allownewplayer.value);
+			discordInfo.whoCanInvite 				= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? netbuffer->u.servercfg.discordinvites : (UINT8)cv_discordinvites.value);
+			// END OF THE DISCORD STUFF //
+#endif
+			// END OF THE ENTIRE STAR MESS TOO //
 
 			nodeingame[(UINT8)servernode] = true;
 			serverplayer = netbuffer->u.servercfg.serverplayer;
@@ -5467,6 +5580,24 @@ static inline void PingUpdate(void)
 	pingmeasurecount = 1; //Reset count
 }
 
+// HOLEPUNCHING STUFFS //
+void RenewHolePunch(void)
+{
+	if (cv_rendezvousserver.string[0])
+	{
+		static time_t past;
+
+		const time_t now = time(NULL);
+
+		if ((now - past) > 20)
+		{
+			I_NetRegisterHolePunch();
+			past = now;
+		}
+	}
+}
+// END THAT PLEASE //
+
 void NetUpdate(void)
 {
 	static tic_t gametime = 0;
@@ -5517,6 +5648,13 @@ void NetUpdate(void)
 #ifdef MASTERSERVER
 	MasterClient_Ticker(); // Acking the Master Server
 #endif
+
+	// HOLEPUNCHING STUFFS //
+	if (netgame && serverrunning)
+	{
+		RenewHolePunch();
+	}
+	// END THAT PLEASE //
 
 	if (client)
 	{

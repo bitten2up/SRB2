@@ -51,11 +51,31 @@
 #include "m_perfstats.h"
 #include "hardware/u_list.h" // TODO: this should be a standard utility class
 
+// STAR NOTE: HI! THIS CAN CAUSE NETGAME RESYNCS, IF YOU ENABLE THE DEFINITION OF COURSE, SO BE CAREFUL!
 #ifdef NETGAME_DEVMODE
 #define CV_RESTRICT CV_NETVAR
 #else
 #define CV_RESTRICT 0
 #endif
+
+#ifdef HAVE_DISCORDRPC
+// DISCORD STUFFS //
+#include "discord.h"
+// END THIS PLEASE //
+#endif
+
+// STAR STUFF YAYA //
+#include "STAR/star_vars.h"
+#include "doomstat.h" // useContinues
+
+// Functions
+static void STAR_UseContinues_OnChange(void);
+
+// Commands
+consvar_t cv_continues = CVAR_INIT ("continues", "Off", CV_SAVE|CV_CALL, CV_OnOff, STAR_UseContinues_OnChange);
+consvar_t cv_movingplayersetup = CVAR_INIT ("movingplayersetup", "Off", CV_SAVE, CV_OnOff, NULL);
+
+// END OF THAT MESS //
 
 // ------
 // protos
@@ -75,6 +95,9 @@ static void Got_RandomSeed(UINT8 **cp, INT32 playernum);
 static void Got_RunSOCcmd(UINT8 **cp, INT32 playernum);
 static void Got_Teamchange(UINT8 **cp, INT32 playernum);
 static void Got_Clearscores(UINT8 **cp, INT32 playernum);
+// STAR STUFF //
+static void Got_Tsourdt3rdInfo(UINT8 **cp, INT32 playernum);
+// END THAT //
 
 static void PointLimit_OnChange(void);
 static void TimeLimit_OnChange(void);
@@ -425,7 +448,8 @@ const char *netxcmdnames[MAXNETXCMD - 1] =
 	"SUICIDE",
 	"LUACMD",
 	"LUAVAR",
-	"LUAFILE"
+	"LUAFILE",
+	"TSOURDT3RD"
 };
 
 // =========================================================================
@@ -618,6 +642,16 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_addons_folder);
 
 	CV_RegisterVar(&cv_dummyconsvar);
+
+	// STAR STUFF //
+#ifdef USE_STUN
+	CV_RegisterVar(&cv_stunserver);
+#endif
+
+	CV_RegisterVar(&cv_discordinvites);
+
+	RegisterNetXCmd(XD_TSOURDT3RD, Got_Tsourdt3rdInfo);
+	// END THIS PLEASE //
 }
 
 // =========================================================================
@@ -924,6 +958,96 @@ void D_RegisterClientCommands(void)
 #ifdef LUA_ALLOW_BYTECODE
 	COM_AddCommand("dumplua", Command_Dumplua_f, COM_LUA);
 #endif
+
+#ifdef HAVE_DISCORDRPC
+	// DISCORD THINGS //
+	// Main Things
+	CV_RegisterVar(&cv_discordrp);
+	CV_RegisterVar(&cv_discordstreamer);
+	CV_RegisterVar(&cv_discordasks);
+	CV_RegisterVar(&cv_discordshowonstatus);
+	CV_RegisterVar(&cv_discordstatusmemes);
+	CV_RegisterVar(&cv_discordcharacterimagetype);
+	
+	// Custom Things
+	CV_RegisterVar(&cv_customdiscorddetails);
+	CV_RegisterVar(&cv_customdiscordstate);
+	CV_RegisterVar(&cv_customdiscordlargeimagetype);
+    CV_RegisterVar(&cv_customdiscordsmallimagetype);
+	CV_RegisterVar(&cv_customdiscordlargecharacterimage);
+	CV_RegisterVar(&cv_customdiscordsmallcharacterimage);
+	CV_RegisterVar(&cv_customdiscordlargesupercharacterimage);
+	CV_RegisterVar(&cv_customdiscordsmallsupercharacterimage);
+    CV_RegisterVar(&cv_customdiscordlargemapimage);
+    CV_RegisterVar(&cv_customdiscordsmallmapimage);
+    CV_RegisterVar(&cv_customdiscordlargemiscimage);
+    CV_RegisterVar(&cv_customdiscordsmallmiscimage);
+    CV_RegisterVar(&cv_customdiscordlargeimagetext);
+    CV_RegisterVar(&cv_customdiscordsmallimagetext);
+	// END OF THE DISCORD THINGS //
+#endif
+
+	// CUSTOM FUNNY STAR THINGS :) //
+	CV_RegisterVar(&cv_startupscreen);
+	CV_RegisterVar(&cv_stjrintro);
+
+	CV_RegisterVar(&cv_loadingscreen);
+	CV_RegisterVar(&cv_loadingscreenimage);
+
+	CV_RegisterVar(&cv_isitcalledsingleplayer);
+	CV_RegisterVar(&cv_menucolor);
+
+	CV_RegisterVar(&cv_fpscountercolor);
+	CV_RegisterVar(&cv_tpsrate);
+	CV_RegisterVar(&cv_tpscountercolor);
+
+	CV_RegisterVar(&cv_allowtypicaltimeover);
+	CV_RegisterVar(&cv_pausegraphicstyle);
+	CV_RegisterVar(&cv_automapoutsidedevmode);
+
+	CV_RegisterVar(&cv_soniccd);
+#ifdef APRIL_FOOLS
+	CV_RegisterVar(&cv_ultimatemode);
+#endif
+
+	CV_RegisterVar(&cv_quitscreen);
+
+	CV_RegisterVar(&cv_tsourdt3rdupdatemessage);
+
+	CV_RegisterVar(&cv_gameovermusic);
+
+	CV_RegisterVar(&cv_defaultmaptrack);
+
+	CV_RegisterVar(&cv_shieldblockstransformation);
+	CV_RegisterVar(&cv_armageddonnukesuper);
+
+	CV_RegisterVar(&cv_alwaysoverlayinvuln);
+
+	CV_RegisterVar(&cv_storesavesinfolders);
+
+	CV_RegisterVar(&cv_perfectsave);
+	CV_RegisterVar(&cv_perfectsavestripe1);
+	CV_RegisterVar(&cv_perfectsavestripe2);
+	CV_RegisterVar(&cv_perfectsavestripe3);
+
+	CV_RegisterVar(&cv_continues);
+
+	CV_RegisterVar(&cv_movingplayersetup);
+
+	CV_RegisterVar(&cv_jukeboxhud);
+
+	CV_RegisterVar(&cv_luacanstopthejukebox);
+	
+	CV_RegisterVar(&cv_jukeboxspeed);
+
+	CV_RegisterVar(&cv_alloweasteregghunt);
+	CV_RegisterVar(&cv_easteregghuntbonuses);
+
+	CV_RegisterVar(&cv_windowtitletype);
+	CV_RegisterVar(&cv_customwindowtitle);
+	
+	CV_RegisterVar(&cv_memesonwindowtitle);
+	// THE STAR VARS ARE COMPLETE! //
 }
 
 /** Checks if a name (as received from another player) is okay.
@@ -1562,6 +1686,13 @@ static void Got_NameAndColor(UINT8 **cp, INT32 playernum)
 	}
 	else
 		SetPlayerSkinByNum(playernum, skin);
+
+#ifdef HAVE_DISCORDRPC
+	// DISCORD STUFFS //
+	if (playernum == consoleplayer)
+		DRPC_UpdatePresence();
+	// END OF THE DISCORD THINGY //
+#endif
 }
 
 void SendWeaponPref(void)
@@ -1966,6 +2097,12 @@ static void Command_Map_f(void)
 		G_SetGameModified(false);
 	}
 
+	// DO STAR STUFF //
+	M_ClearMenus(true);
+	if (demoplayback && titledemo)
+		G_CheckDemoStatus();
+	// END OF STAR STUFF //
+
 	// new gametype value
 	// use current one by default
 	if (option_gametype)
@@ -2152,6 +2289,12 @@ static void Got_Mapcmd(UINT8 **cp, INT32 playernum)
 	if (demorecording) // Okay, level loaded, character spawned and skinned,
 		G_BeginRecording(); // I AM NOW READY TO RECORD.
 	demo_start = true;
+
+#ifdef HAVE_DISCORDRPC
+	// DISCORD STUFFS //
+	DRPC_UpdatePresence();
+	// END THIS PLEASE //
+#endif
 }
 
 static void Command_Pause(void)
@@ -2903,6 +3046,12 @@ static void Got_Teamchange(UINT8 **cp, INT32 playernum)
 	// In tag, check to see if you still have a game.
 	if (G_TagGametype())
 		P_CheckSurvivors();
+
+#ifdef HAVE_DISCORDRPC
+	// DISCORD STUFFS //
+	DRPC_UpdatePresence();
+	// ENDED THIS //
+#endif
 }
 
 //
@@ -3837,10 +3986,11 @@ static void Command_ListWADS_f(void)
   */
 static void Command_Version_f(void)
 {
+	// STAR NOTE: i was here :)
 #ifdef DEVELOP
-	CONS_Printf("Sonic Robo Blast 2 %s-%s (%s %s) ", compbranch, comprevision, compdate, comptime);
+	CONS_Printf("Sonic Robo Blast 2; %s - %s-%s (%s %s) ", TSOURDT3RDVERSIONSTRING, compbranch, comprevision, compdate, comptime);
 #else
-	CONS_Printf("Sonic Robo Blast 2 %s (%s %s %s %s) ", VERSIONSTRING, compdate, comptime, comprevision, compbranch);
+	CONS_Printf("Sonic Robo Blast 2 %s; %s %s (%s %s %s %s) ", VERSIONSTRING, TSOURDT3RDVERSIONSTRING, TSOURDT3RDBYSTARMANIAKGSTRING, compdate, comptime, comprevision, compbranch);
 #endif
 
 	// Base library
@@ -3861,7 +4011,7 @@ static void Command_Version_f(void)
 #elif defined(UNIXCOMMON)
 	CONS_Printf("Unix (Common) ");
 #else
-	CONS_Printf("Other OS ");
+	CONS_Printf("Unknown/Other OS "); // STAR NOTE: STAR WAS HERE, HEHEHE
 #endif
 
 	// Bitness
@@ -3928,6 +4078,12 @@ static void Command_Playintro_f(void)
 
 	if (dirmenu)
 		closefilemenu(true);
+
+	// STAR STUFF BEP //
+	M_ClearMenus(true);
+	if (demoplayback && titledemo)
+		G_CheckDemoStatus();
+	// ADDING STUFF FOR CONVENIENCE IS FUN //
 
 	F_StartIntro();
 }
@@ -4301,6 +4457,12 @@ void D_GameTypeChanged(INT32 lastgametype)
 			teamscramble = 0;
 		}
 	}
+
+#ifdef HAVE_DISCORDRPC
+	// DISCORD STUFFS //
+	DRPC_UpdatePresence();
+	// TECHNICALLY I DON'T HAVE TO MAKE ALL OF THESE COMMENTS, BUT I STILL MAKE THEM JUST BECAUSE ITS EASIER FOR EVERYONE, I GUESS //
+#endif
 }
 
 static void Ringslinger_OnChange(void)
@@ -4670,6 +4832,12 @@ static void Command_Isgamemodified_f(void)
 		CONS_Printf(M_GetText("modifiedgame is true, but you can save emblem and time data in this mod.\n"));
 	else if (modifiedgame)
 		CONS_Printf(M_GetText("modifiedgame is true, extras will not be unlocked\n"));
+	
+	// STAR STUFF YAY //
+	else if (autoloaded)
+		CONS_Printf(M_GetText("modifiedgame is false, and extras can still be unlocked,\n but keep in mind that you have autoloaded game-changing add-ons.\n"));
+	// END STAR STUFF YAY //
+
 	else
 		CONS_Printf(M_GetText("modifiedgame is false, you can unlock extras\n"));
 }
@@ -4822,13 +4990,48 @@ static void Skin_OnChange(void)
 		return;
 	}
 
-	if (CanChangeSkin(consoleplayer) && !P_PlayerMoving(consoleplayer))
+	// STAR NOTE: No Cheating in Race-Type Modes
+	if (gametyperules & GTR_RACE && (cv_movingplayersetup.value && P_PlayerMoving(consoleplayer)))
+	{
+		CONS_Alert(CONS_NOTICE, M_GetText("You can't change your skin at the moment. Nice try, %s.\n"),
+#ifdef HAVE_DISCORDRPC
+			((discordInfo.Disconnected || !discordInfo.Initialized) ? (Playing() ? player_names[consoleplayer] : cv_playername.string) : discordInfo.sessionUsername)
+#else
+			(Playing() ? player_names[consoleplayer] : cv_playername.string)
+#endif
+		);
+		CV_StealthSet(&cv_skin, skins[players[consoleplayer].skin].name);
+		return;
+	}
+
+	// STAR NOTE: i was here lol
+	if ((CanChangeSkin(consoleplayer))
+		&& (cv_movingplayersetup.value || (!cv_movingplayersetup.value && !P_PlayerMoving(consoleplayer))))
+	{
 		SendNameAndColor();
+
+		if (cv_movingplayersetup.value && P_PlayerMoving(consoleplayer))
+		{
+			player_t *player = &players[consoleplayer];
+			if (player->mo && !(P_IsObjectOnGround(player->mo)))
+				P_ResetPlayer(player);
+
+			if (netgame)
+				NetUpdate(); // update the player
+		}
+	}
 	else
 	{
 		CONS_Alert(CONS_NOTICE, M_GetText("You can't change your skin at the moment.\n"));
 		CV_StealthSet(&cv_skin, skins[players[consoleplayer].skin].name);
 	}
+
+#ifdef HAVE_SDL
+	// STAR STUFF //
+	if (cv_windowtitletype.value == 1)
+		STAR_SetWindowTitle();
+	// END THAT //
+#endif
 }
 
 /** Sends a skin change for the secondary splitscreen player, unless that
@@ -4841,8 +5044,33 @@ static void Skin2_OnChange(void)
 	if (!Playing() || !splitscreen)
 		return; // do whatever you want
 
-	if (CanChangeSkin(secondarydisplayplayer) && !P_PlayerMoving(secondarydisplayplayer))
+	// STAR NOTE: No Cheating in Race-Type Modes 2
+	if (gametyperules & GTR_RACE && (cv_movingplayersetup.value && P_PlayerMoving(secondarydisplayplayer)))
+	{
+		CONS_Alert(CONS_NOTICE, M_GetText("You can't change your skin at the moment. Nice try, %s's friend.\n"),
+#ifdef HAVE_DISCORDRPC
+			((discordInfo.Disconnected || !discordInfo.Initialized) ? (Playing() ? player_names[consoleplayer] : cv_playername.string) : discordInfo.sessionUsername)
+#else
+			(Playing() ? player_names[consoleplayer] : cv_playername.string)
+#endif
+		);
+		CV_StealthSet(&cv_skin2, skins[players[secondarydisplayplayer].skin].name);
+		return;
+	}
+
+	// STAR NOTE: i was here 2
+	if ((CanChangeSkin(secondarydisplayplayer))
+		&& (cv_movingplayersetup.value || (!cv_movingplayersetup.value && !P_PlayerMoving(secondarydisplayplayer))))
+	{
 		SendNameAndColor2();
+
+		if (cv_movingplayersetup.value && P_PlayerMoving(secondarydisplayplayer))
+		{
+			player_t *player2 = &players[secondarydisplayplayer];
+			if (player2->mo && !(P_IsObjectOnGround(player2->mo)))
+				P_ResetPlayer(player2);
+		}
+	}
 	else
 	{
 		CONS_Alert(CONS_NOTICE, M_GetText("You can't change your skin at the moment.\n"));
@@ -4868,7 +5096,9 @@ static void Color_OnChange(void)
 			return;
 		}
 
-		if (!P_PlayerMoving(consoleplayer) && skincolors[players[consoleplayer].skincolor].accessible == true)
+		// STAR NOTE: i was here :)
+		if ((cv_movingplayersetup.value || (!cv_movingplayersetup.value && !P_PlayerMoving(consoleplayer)))
+			&& (skincolors[players[consoleplayer].skincolor].accessible == true))	
 		{
 			// Color change menu scrolling fix is no longer necessary
 			SendNameAndColor();
@@ -4896,7 +5126,9 @@ static void Color2_OnChange(void)
 	}
 	else
 	{
-		if (!P_PlayerMoving(secondarydisplayplayer) && skincolors[players[secondarydisplayplayer].skincolor].accessible == true)
+		// STAR NOTE: i was here 2 :)
+		if ((cv_movingplayersetup.value || (!cv_movingplayersetup.value && !P_PlayerMoving(secondarydisplayplayer)))
+			&& (skincolors[players[secondarydisplayplayer].skincolor].accessible == true))
 		{
 			// Color change menu scrolling fix is no longer necessary
 			SendNameAndColor2();
@@ -4991,4 +5223,50 @@ static void BaseNumLaps_OnChange(void)
 		else
 			CONS_Printf(M_GetText("Number of laps will be changed to %d next round.\n"), cv_basenumlaps.value);
 	}
+}
+
+// STAR STUFF: ELECTRIC BOOGALO //
+static void Got_Tsourdt3rdInfo(UINT8 **cp, INT32 playernum)
+{
+	// Protect Others Against a Hacked/Buggy Client //
+	if (playernum != serverplayer && !IsPlayerAdmin(playernum))
+	{
+		CONS_Alert(CONS_WARNING, M_GetText("Illegal Discord info command received from %s\n"), player_names[playernum]);
+		if (server)
+			SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
+		return;
+	}
+
+	// Apply Info, and We're Done :) //
+	UINT8 serverUsesTSoURDt3rd				= (boolean)READUINT8(*cp);
+	TSoURDt3rdInfo.serverUsesTSoURDt3rd		= (((UINT8)serverUsesTSoURDt3rd != 1 && serverUsesTSoURDt3rd != 0) ? 0 : 1);
+
+	TSoURDt3rdInfo.majorVersion 			= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? READUINT8(*cp) : 0);
+	TSoURDt3rdInfo.minorVersion 			= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? READUINT8(*cp) : 0);
+	TSoURDt3rdInfo.subVersion 				= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? READUINT8(*cp) : 0);
+
+	TSoURDt3rdInfo.serverTSoURDt3rdVersion 	= STAR_CombineNumbers(3, TSoURDt3rdInfo.majorVersion, TSoURDt3rdInfo.minorVersion, TSoURDt3rdInfo.subVersion);
+
+	// DISCORD STUFF //
+#ifdef HAVE_DISCORDRPC
+	discordInfo.maxPlayers 					= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? READUINT8(*cp) : (UINT8)cv_maxplayers.value);
+	discordInfo.joinsAllowed 				= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? (boolean)READUINT8(*cp) : (boolean)cv_allownewplayer.value);
+	discordInfo.whoCanInvite 				= (TSoURDt3rdInfo.serverUsesTSoURDt3rd ? READUINT8(*cp) : (UINT8)cv_discordinvites.value);
+
+	DRPC_UpdatePresence();
+#else
+	(*cp) += 3; // Don't do anything with the information if we don't have Discord RPC support
+#endif
+	// END THAT DISCORD STUFF //
+}
+
+static void STAR_UseContinues_OnChange(void)
+{
+	if (Playing())
+		return;
+
+	if (!(netgame || multiplayer))
+		useContinues = cv_continues.value;
+	else
+		CONS_Printf(M_GetText("This only works in Singleplayer.\n"));
 }

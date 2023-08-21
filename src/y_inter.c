@@ -44,6 +44,11 @@
 #include "hardware/hw_main.h"
 #endif
 
+// STAR STUFF //
+#include "STAR/star_vars.h"
+#include "deh_soc.h"
+// END OF THAT //
+
 typedef struct
 {
 	char patch[9];
@@ -941,7 +946,9 @@ void Y_IntermissionDrawer(void)
 				// already constrained to 8 characters
 				V_DrawString(x+36, y, V_ALLOWLOWERCASE, data.competition.name[i]);
 
-				if (players[data.competition.num[i]].pflags & PF_GAMETYPEOVER)
+				if ((players[data.competition.num[i]].pflags & PF_GAMETYPEOVER)
+					|| (timeover)) // STAR NOTE: i was here lol
+
 					snprintf(sstrtime, sizeof sstrtime, "Time Over");
 				else if (players[data.competition.num[i]].lives <= 0)
 					snprintf(sstrtime, sizeof sstrtime, "Game Over");
@@ -997,6 +1004,20 @@ void Y_Ticker(void)
 	// Check for pause or menu up in single player
 	if (paused || P_AutoPause())
 		return;
+
+	// STAR STUFF //
+	if (cv_storesavesinfolders.value)
+	{
+		I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER, srb2home), 0755);
+		if (TSoURDt3rd_useAsFileName)
+		{
+			I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "TSoURDt3rd", srb2home), 0755);
+			I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "TSoURDt3rd" PATHSEP "%s", srb2home, timeattackfolder), 0755);
+		}
+		else
+			I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "%s", srb2home, timeattackfolder), 0755);
+	}
+	// END THAT //
 
 	LUA_HookBool(intertype == int_spec && stagefailed,
 			HOOK(IntermissionThinker));

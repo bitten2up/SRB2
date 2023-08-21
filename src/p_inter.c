@@ -29,6 +29,20 @@
 #include "v_video.h" // video flags for CEchos
 #include "f_finale.h"
 
+#ifdef HAVE_DISCORDRPC
+// DISCORD STUFFS //
+#include "discord.h"
+// END THAT //
+#endif
+
+// STAR STUFF //
+#include "STAR/star_vars.h"
+
+#include "d_main.h"
+#include "deh_soc.h"
+#include "m_menu.h" // jukebox thingies
+// END OF THAT //
+
 // CTF player names
 #define CTFTEAMCODE(pl) pl->ctfteam ? (pl->ctfteam == 1 ? "\x85" : "\x84") : ""
 #define CTFTEAMENDCODE(pl) pl->ctfteam ? "\x80" : ""
@@ -242,6 +256,7 @@ void P_DoNightsScore(player_t *player)
 //
 // Checks if you have all 7 pw_emeralds, then turns you "super". =P
 //
+boolean all7matchemeralds; // STAR NOTE: needed for some discord texts
 void P_DoMatchSuper(player_t *player)
 {
 	UINT16 match_emeralds = player->powers[pw_emeralds];
@@ -261,13 +276,17 @@ void P_DoMatchSuper(player_t *player)
 		return;
 
 	// Got 'em all? Turn "super"!
+	// STAR STUFF //
+	all7matchemeralds = true;
+	// END THAT //
 	emeraldspawndelay = invulntics + 1;
 	player->powers[pw_emeralds] = 0;
 	player->powers[pw_invulnerability] = emeraldspawndelay;
 	player->powers[pw_sneakers] = emeraldspawndelay;
 	if (P_IsLocalPlayer(player) && !player->powers[pw_super])
 	{
-		S_StopMusic();
+		if (!jukeboxMusicPlaying) // STAR NOTE: i was here lol
+			S_StopMusic();
 		if (mariomode)
 			G_GhostAddColor(GHC_INVINCIBLE);
 		strlcpy(S_sfx[sfx_None].caption, "Invincibility", 14);
@@ -285,12 +304,16 @@ void P_DoMatchSuper(player_t *player)
 			if (playeringame[i] && players[i].ctfteam == player->ctfteam
 			&& players[i].powers[pw_emeralds] != 0)
 			{
+				// STAR STUFF //
+				all7matchemeralds = true;
+				// END THAT //
 				players[i].powers[pw_emeralds] = 0;
 				player->powers[pw_invulnerability] = invulntics + 1;
 				player->powers[pw_sneakers] = player->powers[pw_invulnerability];
 				if (P_IsLocalPlayer(player) && !player->powers[pw_super])
 				{
-					S_StopMusic();
+					if (!jukeboxMusicPlaying) // STAR NOTE: i was here lol
+						S_StopMusic();
 					if (mariomode)
 						G_GhostAddColor(GHC_INVINCIBLE);
 					strlcpy(S_sfx[sfx_None].caption, "Invincibility", 14);
@@ -298,6 +321,13 @@ void P_DoMatchSuper(player_t *player)
 					S_ChangeMusicInternal((mariomode) ? "_minv" : "_inv", false);
 				}
 			}
+
+
+#ifdef HAVE_DISCORDRPC
+	// DISCORD STUFFS //
+	DRPC_UpdatePresence();
+	// END THAT PLEASE //
+#endif
 }
 
 /** Takes action based on a ::MF_SPECIAL thing touched by a player.
@@ -655,10 +685,9 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 						S_StartSound(toucher, sfx_chchng);
 				}
 				else
-				{
-					P_GiveCoopLives(player, 1, true); // if continues are disabled, a life is a reasonable substitute
 					S_StartSound(toucher, sfx_chchng);
-				}
+				
+				P_GiveCoopLives(player, 1, true); // STAR NOTE: now, you should always give a life, since we're using this build!
 			}
 			else
 			{
@@ -2550,13 +2579,13 @@ void P_KillMobj(mobj_t *target, mobj_t *inflictor, mobj_t *source, UINT8 damaget
 
 		if ((target->player->lives <= 1) && (netgame || multiplayer) && G_GametypeUsesCoopLives() && (cv_cooplives.value == 0))
 			;
-		else if ((!target->player->bot || target->player->bot == BOT_MPAI) && !target->player->spectator && (target->player->lives != INFLIVES)
+		else if ((!target->player->bot || target->player->bot == BOT_MPAI) && !target->player->spectator && ((target->player->lives != INFLIVES) || timeover) // STAR NOTE: i was here lol
 		 && G_GametypeUsesLives())
 		{
 			if (!(target->player->pflags & PF_FINISHED))
 				target->player->lives -= 1; // Lose a life Tails 03-11-2000
 
-			if (target->player->lives <= 0) // Tails 03-14-2000
+			if (target->player->lives <= 0 || timeover) // Tails 03-14-2000, Star 04-14-2023
 			{
 				boolean gameovermus = false;
 				if ((netgame || multiplayer) && G_GametypeUsesCoopLives() && (cv_cooplives.value != 1))
@@ -2577,10 +2606,27 @@ void P_KillMobj(mobj_t *target, mobj_t *inflictor, mobj_t *source, UINT8 damaget
 					gameovermus = true;
 
 				if (gameovermus) // Yousa dead now, Okieday? Tails 03-14-2000
-					S_ChangeMusicEx("_gover", 0, 0, 0, (2*MUSICRATE) - (MUSICRATE/25), 0); // 1.96 seconds
+					S_ChangeMusicEx(gameoverMusic[cv_gameovermusic.value], 0, 0, 0, (2*MUSICRATE) - (MUSICRATE/25), 0); // 1.96 seconds (STAR NOTE: i was here too lol)
 					//P_PlayJingle(target->player, JT_GOVER); // can't be used because incompatible with track fadeout
 
-				if (!(netgame || multiplayer || demoplayback || demorecording || metalrecording || modeattacking) && numgameovers < maxgameovers)
+				// STAR STUFF //
+				if (cv_storesavesinfolders.value)
+				{
+					I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER, srb2home), 0755);
+					if (TSoURDt3rd_useAsFileName)
+					{
+						I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "TSoURDt3rd", srb2home), 0755);
+						I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "TSoURDt3rd" PATHSEP "%s", srb2home, timeattackfolder), 0755);
+					}
+					else
+						I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "%s", srb2home, timeattackfolder), 0755);
+				}
+				// END THAT //
+
+				if ((!(netgame || multiplayer || demoplayback || demorecording || metalrecording || modeattacking)
+					|| (!(target->player->lives <= 0) && timeover && !(netgame || multiplayer || demoplayback || demorecording || metalrecording || modeattacking)))
+					
+					&& (numgameovers < maxgameovers))
 				{
 					numgameovers++;
 					if ((!modifiedgame || savemoddata) && cursaveslot > 0)

@@ -32,6 +32,13 @@
 #include "hardware/hw3sound.h"
 #endif
 
+// STAR STUFF WEEE //
+#include "STAR/star_vars.h" // extra variables
+#include "m_menu.h" // jukebox
+
+consvar_t cv_soniccd = CVAR_INIT ("soniccd", "Off", CV_SAVE, CV_OnOff, NULL);
+// END OF THAT THING //
+
 boolean LUA_CallAction(enum actionnum actionnum, mobj_t *actor);
 
 player_t *stplyr;
@@ -4385,8 +4392,13 @@ void A_SuperSneakers(mobj_t *actor)
 
 	if (P_IsLocalPlayer(player) && !player->powers[pw_super])
 	{
-		if (S_SpeedMusic(0.0f) && (mapheaderinfo[gamemap-1]->levelflags & LF_SPEEDMUSIC))
-			S_SpeedMusic(1.4f);
+		// STAR NOTE: i was here lol
+		if ((mapheaderinfo[gamemap-1]->levelflags & LF_SPEEDMUSIC)
+			&& (!jukeboxMusicPlaying))
+		{
+			if (S_SpeedMusic(0.0f))
+				S_SpeedMusic(1.4f);
+		}
 		else
 			P_PlayJingle(player, JT_SHOES);
 		strlcpy(S_sfx[sfx_None].caption, "Speed shoes", 12);
@@ -11708,7 +11720,7 @@ mobj_t *P_InternalFlickySpawn(mobj_t *actor, mobjtype_t flickytype, fixed_t momz
 		else
 		{
 			INT32 prandom = P_RandomKey(mapheaderinfo[gamemap-1]->numFlickies);
-			flickytype = mapheaderinfo[gamemap-1]->flickies[prandom];
+			flickytype = (cv_soniccd.value ? MT_SEED : mapheaderinfo[gamemap-1]->flickies[prandom]); // STAR NOTE: i was here lol
 		}
 	}
 

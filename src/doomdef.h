@@ -226,7 +226,7 @@ extern char logfilename[1024];
 // NOTE: it needs more than this to increase the number of players...
 
 #define MAXPLAYERS 32
-#define MAXSKINS 32
+#define MAXSKINS 255 // STAR NOTE: i was here lol (also, if you want to set the limits back to vanilla's limits, set this to 32)
 #define PLAYERSMASK (MAXPLAYERS-1)
 #define MAXPLAYERNAME 21
 
@@ -599,6 +599,7 @@ extern const char *compdate, *comptime, *comprevision, *compbranch;
 // Compile them at your own risk!
 
 ///	Allows the use of devmode in multiplayer. AKA "fishcake"
+// STAR NOTE: HI! THIS CAN CAUSE NETGAME RESYNCS, IF YOU ENABLE THE DEFINITION, OF COURSE, SO BE CAREFUL!
 //#define NETGAME_DEVMODE
 
 ///	Allows gravity changes in netgames, no questions asked.
@@ -667,5 +668,25 @@ extern const char *compdate, *comptime, *comprevision, *compbranch;
 #else
 #undef UPDATE_ALERT
 #endif
+
+// STAR STUFF YAY //
+// STAR NOTE: SOME OF THESE MAY ALSO BE UNSTABLE TOO
+
+// Enable Alam's Lighting, With Touch-ups by Star :p (Currently in Extreme Beta lol)
+//#define ALAM_LIGHTING
+
+// Enable More Debugging Features
+//#define _DEBUG
+//#define DEBUGFILE
+
+// Savefiles
+#define SAVEGAMEFOLDER "saves"
+extern char savegamefolder[256];
+
+// Events
+//#define APRIL_FOOLS			// enables april fools mode, but won't exist in the future, thanks to TSoURDt3rd_CheckTime
+
+// Extras
+//#define BLAME_SEV				// blames sev
 
 #endif // __DOOMDEF__

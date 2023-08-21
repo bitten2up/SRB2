@@ -48,6 +48,11 @@
 
 #include "r_fps.h"
 
+// STAR STUFF //
+#include "d_main.h"
+#include "STAR/star_vars.h"
+// END OF THAT //
+
 UINT16 objectsdrawn = 0;
 
 //
@@ -134,6 +139,16 @@ static patch_t *fnshico;
 
 static boolean facefreed[MAXPLAYERS];
 
+#ifdef HAVE_DISCORDRPC
+static patch_t *envelope; // DISCORD STUFFS: Discord Rich Presence Requests
+#endif
+
+// STAR STUFF //
+// Easter
+static patch_t *stageeggs;
+static patch_t *totaleggs;
+// THAT'S THE END //
+
 hudinfo_t hudinfo[NUMHUDITEMS] =
 {
 	{  16, 176, V_SNAPTOLEFT|V_SNAPTOBOTTOM}, // HUD_LIVES
@@ -216,8 +231,9 @@ void ST_doPaletteStuff(void)
 		palette = 0;
 
 #ifdef HWRENDER
-	if (rendermode == render_opengl)
-		palette = 0; // No flashpals here in OpenGL
+	// STAR NOTE: i was here lol
+	if (rendermode == render_opengl && !HWR_ShouldUsePaletteRendering())
+		palette = 0; // Don't set the palette to a flashpal in OpenGL's truecolor mode
 #endif
 
 	if (palette != st_palette)
@@ -347,6 +363,17 @@ void ST_LoadGraphics(void)
 
 	for (i = 0; i < 7; ++i)
 		ngradeletters[i] = W_CachePatchName(va("GRADE%d", i), PU_HUDGFX);
+
+#ifdef HAVE_DISCORDRPC
+	envelope = W_CachePatchName("D_REQUES", PU_HUDGFX); // DISCORD STUFFS: rich presence requests
+#endif
+
+	//// STAR STUFF ////
+	// Events //
+	// Easter
+	stageeggs = W_CachePatchName("STAGEEGS", PU_HUDGFX);
+	totaleggs = W_CachePatchName("TOTLEGS", PU_HUDGFX);
+	//// GRAPHICS SORTED, YAY ////
 }
 
 // made separate so that skins code can reload custom face graphics
@@ -1205,7 +1232,7 @@ static void ST_drawInput(void)
 		}
 	}
 	if (!demosynced) // should always be last, so it doesn't push anything else around
-		V_DrawThinString(x, y, hudinfo[HUD_LIVES].f|((leveltime & 4) ? V_YELLOWMAP : V_REDMAP), "BAD DEMO!!");
+		V_DrawThinString(x, y, hudinfo[HUD_LIVES].f|((leveltime & 4) ? menuColor[cv_menucolor.value] : V_REDMAP), "BAD DEMO!!");
 }
 
 static patch_t *lt_patches[3];
@@ -1700,7 +1727,7 @@ static void ST_drawNightsRecords(void)
 			if (!(netgame || multiplayer) && G_GetBestNightsScore(gamemap, stplyr->lastmare + 1) <= stplyr->lastmarescore)
 			{
 				if (stplyr->texttimer & 16)
-					V_DrawCenteredString(BASEVIDWIDTH/2, 184, V_YELLOWMAP|aflag, "* NEW RECORD *");
+					V_DrawCenteredString(BASEVIDWIDTH/2, 184, menuColor[cv_menucolor.value]|aflag, "* NEW RECORD *");
 			}
 
 			if (P_HasGrades(gamemap, stplyr->lastmare + 1))
@@ -2070,7 +2097,7 @@ static void ST_drawNiGHTSHUD(void)
 
 		// Show exact time in debug
 		if (cv_debug & DBG_NIGHTSBASIC)
-			V_DrawString(160 + numbersize + 8, 24, V_SNAPTOTOP|((realnightstime < 10) ? V_REDMAP : V_YELLOWMAP), va("%02d", G_TicsToCentiseconds(stplyr->nightstime)));
+			V_DrawString(160 + numbersize + 8, 24, V_SNAPTOTOP|((realnightstime < 10) ? V_REDMAP : menuColor[cv_menucolor.value]), va("%02d", G_TicsToCentiseconds(stplyr->nightstime)));
 	}
 
 	if (oldspecialstage)
@@ -2607,6 +2634,124 @@ static void ST_doItemFinderIconsAndSound(void)
 		S_StartSound(NULL, sfx_emfind);
 }
 
+//				//
+// STAR SECTION //
+//				//
+
+//
+// void ST_drawJukebox(void);
+// Draws Jukebox Text On The Screen/HUD
+//
+boolean initJukeboxHUD;				// Initializes the Processes Below
+
+INT32 boxw; 						// Slides our Filed Box to Width 245
+INT32 strw; 						// Slides our Regular String to Width 230
+INT32 tstrw; 						// Slides our Thin String to Width 195
+
+INT32 slidetime;					// The Time it Will Take to Slide Those Properties Over
+
+void ST_drawJukebox(void)
+{
+	if (cv_jukeboxhud.value && jukeboxMusicPlaying)
+	{
+		// Run Variables First //
+		if (initJukeboxHUD)
+		{		
+			if (slidetime > 0)
+			{
+				boxw -= 5;
+				strw -= 5;
+				tstrw -= 5;
+			
+				slidetime -= 1;
+			}
+			else
+				initJukeboxHUD = false;
+		}
+
+		// Apply Variables and Render Things //
+		// The Box
+		V_DrawFillConsoleMap(
+			((BASEVIDWIDTH/5)+(boxw-(strlen(jukeboxMusicName) < 18 ? 4 : strlen(va("PLAYING: %s", jukeboxMusicName))+27))), 		// X Width
+			(45),																					  	   							// Y Height
+			(130+(strlen(jukeboxMusicName) < 18 ? 0 : strlen(va("PLAYING: %s", jukeboxMusicName))+27)),					  			// Box Width
+			(25),																					  	  							// Box Height
+			(V_SNAPTORIGHT|V_HUDTRANSHALF));																						// Box Flags
+		
+		// The Strings
+		V_DrawString(
+			(((BASEVIDWIDTH/4)+20)+(strw-(strlen(jukeboxMusicName) < 18 ? 4 : strlen(va("PLAYING: %s", jukeboxMusicName))-14))), 	// String Width
+			(45),																						   	    					// String Height
+			(V_SNAPTORIGHT|V_ALLOWLOWERCASE), 															   	   						// String Flags
+			("JUKEBOX"));																				        					// String
+		
+		V_DrawThinString(
+			(((((BASEVIDWIDTH/5)+1)+tstrw)-(strlen(jukeboxMusicName) < 18 ? 4 : strlen(va("PLAYING: %s", jukeboxMusicName))+27))), 	// String Width
+			(60),																						   	    				   	// String Height
+			(V_SNAPTORIGHT|V_ALLOWLOWERCASE|V_YELLOWMAP), 																			// String Flags and Color
+			(va("PLAYING: %s", jukeboxMusicName)));																					// String
+	}
+
+	if (!cv_jukeboxhud.value || !jukeboxMusicPlaying)
+	{
+		boxw = strw = tstrw = 300;
+		slidetime = (1*TICRATE-2);
+	}
+}
+
+//
+// void ST_drawEggs(void);
+// Draws The Number of Easter Eggs on the HUD
+//
+// STAR NOTE FOR SNOOPERS: THIS CONTAINS PIECES OF CODE THAT tsourdt3rd.pk3 INITIALIZES, SETS, AND RUNS.
+//							IF YOU WANT TO SEE THE REST, JUST TAKE A LOOK AT THAT PK3.
+//
+INT32 currenteggs;
+INT32 collectedmapeggs;
+INT32 numMapEggs;
+
+void ST_drawEggs(void)
+{
+	// Run Some Checks
+	if (!Playing() 										// We Need to Play, Jesse
+		|| (netgame || multiplayer)						// You Can't Manipulate Your Friends for This Egg Hunt
+		|| (!eastermode)								// We Shouldn't Even Show This If It's Not Easter
+		|| (TSoURDt3rd_NoMoreExtras)					// No Cheating
+		|| (autoloaded)									// No Cheating: Electric Boogalo
+		|| (!AllowEasterEggHunt)						// Hooray for Consent
+		
+		|| (F_GetPromptHideHud(hudinfo[HUD_RINGS].y)))	// If Rings are Hidden, So Are the Eggs
+		return;
+
+	//// NOW WE RENDER! ////
+	// Draw the Patches and Strings //
+	if (numMapEggs && (collectedmapeggs != numMapEggs))
+	{	
+		// Map Eggs
+		V_DrawScaledPatch(16, 64, V_SNAPTOLEFT|V_SNAPTOTOP|V_PERPLAYER|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), stageeggs);
+
+		V_DrawTallNum(115, 64, V_SNAPTOLEFT|V_SNAPTOTOP|V_PERPLAYER|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), collectedmapeggs);
+		V_DrawString(115, 64, V_SNAPTOLEFT|V_SNAPTOTOP|V_PERPLAYER|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), "/");
+		V_DrawTallNum(140, 64, V_SNAPTOLEFT|V_SNAPTOTOP|V_PERPLAYER|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), numMapEggs);
+		
+		// Total Eggs
+		V_DrawScaledPatch(16, 80, V_SNAPTOLEFT|V_SNAPTOTOP|V_PERPLAYER|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), totaleggs);
+
+		V_DrawTallNum(115, 80, V_SNAPTOLEFT|V_SNAPTOTOP|V_PERPLAYER|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), currenteggs);
+		V_DrawString(115, 80, V_SNAPTOLEFT|V_SNAPTOTOP|V_PERPLAYER|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), "/");
+		V_DrawTallNum(140, 80, V_SNAPTOLEFT|V_SNAPTOTOP|V_PERPLAYER|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), TOTALEGGS);
+	}
+
+	// Draw the Egg Notifier //
+	else if (currenteggs == TOTALEGGS)
+		V_DrawCenteredThinString(16, 64, V_GREENMAP|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), "All Eggs Have Been Found!");
+	else if (numMapEggs && (collectedmapeggs == numMapEggs))
+		V_DrawCenteredThinString(16, 64, V_GREENMAP|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), "All Eggs in this Map Have Been Found!");
+	else
+		V_DrawCenteredThinString(16, 64, V_REDMAP|((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS), "There Are No Eggs in This Map!");
+}
+// END OF STAR SECTION //
+
 //
 // Draw the status bar overlay, customisable: the user chooses which
 // kind of information to overlay
@@ -2638,7 +2783,14 @@ static void ST_overlayDrawer(void)
 			if (LUA_HudEnabled(hud_time))
 				ST_drawTime();
 			if (LUA_HudEnabled(hud_rings))
+			{
 				ST_drawRings();
+
+				// STAR STUFF YAY //
+				// Render Easter HUD With the Rings
+				ST_drawEggs();
+				// END THIS MESS //
+			}
 
 			if (!modeattacking && LUA_HudEnabled(hud_lives))
 				ST_drawLivesArea();
@@ -2650,7 +2802,7 @@ static void ST_overlayDrawer(void)
 		&& (netgame || multiplayer)
 		&& (cv_cooplives.value == 0))
 	;
-	else if ((G_GametypeUsesLives() || ((gametyperules & (GTR_RACE|GTR_LIVES)) == GTR_RACE)) && stplyr->lives <= 0 && !(hu_showscores && (netgame || multiplayer)))
+	else if ((G_GametypeUsesLives() || ((gametyperules & (GTR_RACE|GTR_LIVES)) == GTR_RACE)) && (stplyr->lives <= 0 || timeover) && !(hu_showscores && (netgame || multiplayer))) // STAR NOTE: i was here lol
 	{
 		INT32 i = MAXPLAYERS;
 		INT32 deadtimer = stplyr->spectator ? TICRATE : (stplyr->deadtimer-(TICRATE<<1));
@@ -2677,7 +2829,7 @@ static void ST_overlayDrawer(void)
 			INT32 lvlttlx = min(6*deadtimer, BASEVIDWIDTH/2);
 			UINT32 flags = V_PERPLAYER|(stplyr->spectator ? V_HUDTRANSHALF : V_HUDTRANS);
 
-			V_DrawScaledPatch(lvlttlx - 8, BASEVIDHEIGHT/2, flags, (countdown == 1 ? slidtime : slidgame));
+			V_DrawScaledPatch(lvlttlx - 8, BASEVIDHEIGHT/2, flags, ((countdown == 1 || timeover) ? slidtime : slidgame)); // STAR NOTE: i was also here lol
 			V_DrawScaledPatch(BASEVIDWIDTH + 8 - lvlttlx, BASEVIDHEIGHT/2, flags, slidover);
 		}
 	}
@@ -2777,8 +2929,29 @@ static void ST_overlayDrawer(void)
 	if (modeattacking && !(demoplayback && hu_showscores))
 		ST_drawInput();
 
+	// STAR STUFF WEEEEE //
+	// Render Jukebox HUD
+	ST_drawJukebox();
+	// ENDED THIS MESS, YAY //
+
 	ST_drawDebugInfo();
 }
+
+#ifdef HAVE_DISCORDRPC
+void ST_AskToJoinEnvelope(void)
+{
+	const tic_t freq = TICRATE/2;
+
+	if (menuactive)
+		return;
+
+	if ((leveltime % freq) < freq/2)
+		return;
+
+	V_DrawFixedPatch(296*FRACUNIT, 2*FRACUNIT, FRACUNIT, V_SNAPTOTOP|V_SNAPTORIGHT, envelope, NULL);
+	// maybe draw number of requests with V_DrawPingNum ?
+}
+#endif
 
 void ST_Drawer(void)
 {
@@ -2819,7 +2992,7 @@ void ST_Drawer(void)
 	//25/08/99: Hurdler: palette changes is done for all players,
 	//                   not only player1! That's why this part
 	//                   of code is moved somewhere else.
-	if (rendermode == render_soft)
+	if (rendermode == render_soft || HWR_ShouldUsePaletteRendering()) // STAR NOTE: i was here too lol
 #endif
 		if (rendermode != render_none) ST_doPaletteStuff();
 

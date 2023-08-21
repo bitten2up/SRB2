@@ -1563,6 +1563,10 @@ HW3SOUND for 3D hardware sound  support
 		<Unit filename="src/lua_hudlib.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/lua_hudlib_drawlist.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/lua_hudlib_drawlist.h" />
 		<Unit filename="src/lua_infolib.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -2014,6 +2018,15 @@ HW3SOUND for 3D hardware sound  support
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/w_wad.h" />
+		<Unit filename="src/STAR/star_functions.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/STAR/star_vars.h" />
+		<Unit filename="src/STAR/star_webinfo.h" />
+		<Unit filename="src/libav/LIBAV_coders.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libav/LIBAV_coders.h">
 		<Unit filename="src/win32/Srb2win.rc">
 			<Option compilerVar="WINDRES" />
 			<Option target="Debug Mingw/DirectX" />

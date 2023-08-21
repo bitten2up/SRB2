@@ -83,6 +83,12 @@
 #define O_BINARY 0
 #endif
 
+// STAR STUFF //
+#include "STAR/star_vars.h"
+#include "deh_soc.h"
+#include "v_video.h"
+// END THAT //
+
 
 typedef struct
 {
@@ -813,6 +819,20 @@ static UINT16 W_InitFileError (const char *filename, boolean exitworthy)
 	}
 	else
 		CONS_Printf(M_GetText("Errors occurred while loading %s; not added.\n"), filename);
+	
+	// STAR STUFF //
+	if (TSoURDt3rd_LoadExtras)
+	{
+		M_StartMessage(va("%c%s\x80\nWe weren't able to load tsourdt3rdextras.pk3\n\nEvents will not be started. \n\n(Press any key to continue)\n", ('\x80' + (menuColor[cv_menucolor.value]|V_CHARCOLORSHIFT)), "Couldn't Load tsourdt3rdextras.pk3"),NULL,MM_NOTHING);
+
+		aprilfoolsmode = false;
+		eastermode = false;
+		xmasmode = false;
+
+		TSoURDt3rd_LoadExtras = false;
+	}
+	// END THAT //
+
 	return INT16_MAX;
 }
 
@@ -820,10 +840,7 @@ static void W_ReadFileShaders(wadfile_t *wadfile)
 {
 #ifdef HWRENDER
 	if (rendermode == render_opengl && (vid.glstate == VID_GL_LIBRARY_LOADED))
-	{
 		HWR_LoadCustomShadersFromFile(numwadfiles - 1, W_FileHasFolders(wadfile));
-		HWR_CompileShaders();
-	}
 #else
 	(void)wadfile;
 #endif
@@ -937,11 +954,39 @@ UINT16 W_InitFile(const char *filename, boolean mainfile, boolean startup)
 		return W_InitFileError(filename, startup);
 	}
 
+	// STAR NOTE: I EDITED THIS lol //
 	if (important && !mainfile)
 	{
-		//G_SetGameModified(true);
-		modifiedgame = true; // avoid savemoddata being set to false
+		if (TSoURDt3rd_LoadExtras)
+		{
+			if (aprilfoolsmode || eastermode || xmasmode)
+			{
+				if (eastermode && (!netgame && !TSoURDt3rd_TouchyModifiedGame))
+				{
+					CV_StealthSetValue(&cv_alloweasteregghunt, 1);
+					AllowEasterEggHunt = true;
+
+					M_UpdateEasterStuff();
+				}
+
+				STAR_ReadExtraData();
+			}
+
+			TSoURDt3rd_LoadedExtras = true;
+			TSoURDt3rd_LoadExtras = false;
+		}
+
+		if (!TSoURDt3rd_TouchyModifiedGame)
+		{
+			//G_SetGameModified(true);
+			modifiedgame = true; // avoid savemoddata being set to false
+
+			TSoURDt3rd_TouchyModifiedGame = true;
+		}
+		else
+			TSoURDt3rd_NoMoreExtras = true;
 	}
+	// END THAT EDITED STUFF lol //
 
 	//
 	// link wad file to search files
@@ -978,6 +1023,10 @@ UINT16 W_InitFile(const char *filename, boolean mainfile, boolean startup)
 
 	// Read shaders from file
 	W_ReadFileShaders(wadfile);
+
+	// STAR STUFF //
+	TSoURDt3rd_checkedExtraWads = false;
+	// AGAIN, AGAIN //
 
 	// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
 	switch (wadfile->type)
@@ -1129,8 +1178,37 @@ UINT16 W_InitFolder(const char *path, boolean mainfile, boolean startup)
 		return W_InitFileError(path, startup);
 	}
 
+	// STAR NOTE: I DRASTICALLY EDITED THIS lol //
 	if (important && !mainfile)
-		G_SetGameModified(true);
+	{
+		if (TSoURDt3rd_LoadExtras)
+		{
+			if (aprilfoolsmode || eastermode || xmasmode)
+			{
+				if (eastermode && (!netgame && !TSoURDt3rd_TouchyModifiedGame))
+				{
+					CV_StealthSetValue(&cv_alloweasteregghunt, 1);
+					AllowEasterEggHunt = true;
+
+					M_UpdateEasterStuff();
+				}
+
+				STAR_ReadExtraData();
+			}
+
+			TSoURDt3rd_LoadedExtras = true;
+			TSoURDt3rd_LoadExtras = false;
+		}
+
+		if (!TSoURDt3rd_TouchyModifiedGame)
+		{
+			G_SetGameModified(true);
+			TSoURDt3rd_TouchyModifiedGame = true;
+		}
+		else
+			TSoURDt3rd_NoMoreExtras = true;
+	}
+	// END THAT DRASTICALLY EDITED STUFF lol //
 
 	wadfile = Z_Malloc(sizeof (*wadfile), PU_STATIC, NULL);
 	wadfile->filename = fn;
@@ -1156,6 +1234,10 @@ UINT16 W_InitFolder(const char *path, boolean mainfile, boolean startup)
 	W_ReadFileShaders(wadfile);
 	W_LoadDehackedLumpsPK3(numwadfiles - 1, mainfile);
 	W_InvalidateLumpnumCache();
+
+	// STAR STUFF //
+	TSoURDt3rd_checkedExtraWads = false;
+	// AGAIN, AGAIN, AGAIN //
 
 	return wadfile->numlumps;
 }
@@ -1501,6 +1583,24 @@ lumpnum_t W_GetNumForName(const char *name)
 
 	if (i == LUMPERROR)
 		I_Error("W_GetNumForName: %s not found!\n", name);
+
+	return i;
+}
+
+//
+// W_GetNumForMusicName
+//
+// Calls W_CheckNumForName, but does NOT bomb out if not found.
+// Geared towards checking for music files where the lump not
+// being found is not a call for a crash.
+//
+// STAR NOTE: Ported From SRB2 Persona lol
+//
+lumpnum_t W_GetNumForMusicName(const char *name)
+{
+	lumpnum_t i;
+
+	i = W_CheckNumForName(name);
 
 	return i;
 }
@@ -2544,6 +2644,20 @@ int W_VerifyNMUSlumps(const char *filename, boolean exit_on_error)
 		{"MUSICDEF", 8}, // Song definitions (thanks kart)
 		{"SHADERS", 7}, // OpenGL shader definitions
 		{"SH_", 3}, // GLSL shader
+
+		// STAR STUFF //
+		{"SRB2BACK", 8}, // SRB2 Titlecard Background
+		
+		{"LTZIGZAG", 8}, // SRB2 Titlecard Zig-Zag
+		{"LTZZTEXT", 8}, // SRB2 Titlecard Text
+		{"LTACTBLU", 8}, // SRB2 Titlecard Icon
+		
+		{"PUREFAT", 7},  // Pure Fat Truck
+
+		{"BLANKLVL", 8}, // NO LEVEL ICONS?
+
+		{"CHAR", 4}, 	 // Character Select Screen Graphics
+		// NETGAME-COMPATIBLE, TOO //
 
 		{NULL, 0},
 	};

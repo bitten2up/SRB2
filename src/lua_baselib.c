@@ -44,6 +44,10 @@ return luaL_error(L, "HUD rendering code should not call this function!");\
 else if (hook_cmd_running)\
 return luaL_error(L, "CMD building code should not call this function!");
 
+// STAR STUFF YAY //
+boolean StopMusicCausedByLua;
+// END STAR STUFF YAY //
+
 boolean luaL_checkboolean(lua_State *L, int narg) {
 	luaL_checktype(L, narg, LUA_TBOOLEAN);
 	return lua_toboolean(L, narg);
@@ -3023,7 +3027,9 @@ static int lib_sSpeedMusic(lua_State *L)
 		if (!player)
 			return LUA_ErrInvalid(L, "player_t");
 	}
-	if (!player || P_IsLocalPlayer(player))
+	if ((!player || P_IsLocalPlayer(player))
+		&& (!jukeboxMusicPlaying)) // STAR NOTE: i was here lol
+
 		S_SpeedMusic(speed);
 	return 0;
 }
@@ -3038,8 +3044,12 @@ static int lib_sStopMusic(lua_State *L)
 		if (!player)
 			return LUA_ErrInvalid(L, "player_t");
 	}
+	// STAR NOTE: i was also here lol
 	if (!player || P_IsLocalPlayer(player))
+	{
+		StopMusicCausedByLua = true;
 		S_StopMusic();
+	}
 	return 0;
 }
 

@@ -135,11 +135,33 @@ typedef enum
 	// MN_HELP,
 
 	MN_SPECIAL,
+
+#ifdef HAVE_DISCORDRPC
+	MN_OP_DISCORD_RQ, // discord requests, for future notice
+	MN_OP_DISCORD_OPT,
+	MN_OP_DISCORDCS_OUTPUT,
+#endif
+
+	// FUN STAR STUFF //
+	MN_TSOURDT3RD_README,
+	
+	MN_MP_EXTENDEDSERVERPROPERTIES,
+	
+	MN_OP_TSOURDT3RD,
+	
+	MN_OP_TSOURDT3RD_JUKEBOX,
+	MN_OP_TSOURDT3RD_SNAKE,
+	// END OF THAT //
+
 	NUMMENUTYPES,
 } menutype_t; // up to 63; MN_SPECIAL = 53
 #define MTREE2(a,b) (a | (b<<MENUBITS))
 #define MTREE3(a,b,c) MTREE2(a, MTREE2(b,c))
 #define MTREE4(a,b,c,d) MTREE2(a, MTREE3(b,c,d))
+
+// STAR STUFF: OLD MENU STUFF EDITION //
+#define MTREE5(a,b,c,d,e) MTREE2(a, MTREE4(b,c,d,e))
+// THAT'S IT LOL //
 
 typedef struct
 {
@@ -468,6 +490,15 @@ void Addons_option_Onchange(void);
 // Moviemode menu updating
 void Moviemode_option_Onchange(void);
 
+#ifdef HAVE_DISCORDRPC
+// DISCORD STUFFS //
+extern boolean discordMenuOpen;
+void Discord_option_Onchange(void);
+
+void M_RefreshPauseMenu(void);
+// END THE DISCORD //
+#endif
+
 // Player Setup menu colors linked list
 typedef struct menucolor_s {
 	struct menucolor_s *next;
@@ -484,6 +515,51 @@ UINT16 M_GetColorBefore(UINT16 color);
 UINT16 M_GetColorAfter(UINT16 color);
 void M_InitPlayerSetupColors(void);
 void M_FreePlayerSetupColors(void);
+
+// STAR STUFF SUBISHUHFLUKJDJIPOKD //
+// main build menu stuff
+extern boolean AllowTypicalTimeOver;
+extern boolean AlwaysOverlayInvincibility, ShieldBlocksTransformation;
+extern boolean AllowEasterEggHunt, EnableEasterEggHuntBonuses;
+
+extern consvar_t cv_startupscreen, cv_stjrintro;
+extern consvar_t cv_isitcalledsingleplayer, cv_menucolor, cv_fpscountercolor, cv_tpscountercolor;
+extern consvar_t cv_allowtypicaltimeover, cv_pausegraphicstyle, cv_automapoutsidedevmode;
+
+#ifdef APRIL_FOOLS
+extern consvar_t cv_ultimatemode;
+#endif
+
+extern consvar_t cv_quitscreen;
+
+extern consvar_t cv_gameovermusic;
+extern consvar_t cv_defaultmaptrack;
+
+extern consvar_t cv_perfectsave, cv_perfectsavestripe1, cv_perfectsavestripe2, cv_perfectsavestripe3;
+extern consvar_t cv_shieldblockstransformation, cv_armageddonnukesuper, cv_alwaysoverlayinvuln;
+extern consvar_t cv_jukeboxhud, cv_luacanstopthejukebox, cv_jukeboxspeed;
+
+extern consvar_t cv_alloweasteregghunt, cv_easteregghuntbonuses;
+extern consvar_t cv_windowtitletype, cv_customwindowtitle, cv_memesonwindowtitle;
+
+extern UINT16 menuColor[16];
+
+// jukebox stuff
+extern boolean jukeboxMusicPlaying;
+extern boolean jukeboxUnlocked;
+
+extern char jukeboxMusicName[22+12];
+extern char jukeboxMusicTrack[7];
+void M_ResetJukebox(void);
+void M_UpdateJukebox(void);
+
+// easter stuff
+void M_UpdateEasterStuff(void);
+
+// extra stuff
+void STAR_SetProblematicCommandsForNetgames(void);
+void STAR_ResetProblematicCommandsAfterNetgames(void);
+// END OF STAR STUFF SHUGDCUYSIGIUDIOHSBIDJ //
 
 // These defines make it a little easier to make menus
 #define DEFAULTMENUSTYLE(id, header, source, prev, x, y)\

@@ -21,6 +21,10 @@
 #include "d_player.h"
 #include "mserv.h"
 
+// STAR STUFF //
+#include "d_event.h"
+// END THAT //
+
 /*
 The 'packet version' is used to distinguish packet
 formats. This version is independent of VERSION and
@@ -41,7 +45,7 @@ therein, increment this number.
 // Networking and tick handling related.
 #define BACKUPTICS 1024
 #define CLIENTBACKUPTICS 32
-#define MAXTEXTCMD 256
+#define MAXTEXTCMD 264 // STAR NOTE: i was here lol (if you want to reset this, set it back to 256 :p)
 //
 // Packet structure
 //
@@ -160,6 +164,20 @@ typedef struct
 	UINT8 modifiedgame;
 
 	char server_context[8]; // Unique context id, generated at server startup.
+
+	// STAR STUFF //
+	boolean tsourdt3rd;
+	
+	UINT8 tsourdt3rdmajorversion;
+	UINT8 tsourdt3rdminorversion;
+	UINT8 tsourdt3rdsubversion;
+
+	// DISCORD COMPATIBILITY STUFF //
+	UINT8 maxplayer;
+	boolean allownewplayer;
+	UINT8 discordinvites;
+	// END THAT LARGE MESS //
+	// END THAT OTHER STUFF TOO //
 } ATTRPACK serverconfig_pak;
 
 typedef struct
@@ -345,7 +363,9 @@ extern INT32 mapchangepending;
 
 // Points inside doomcom
 extern doomdata_t *netbuffer;
-
+// DISCORD STUFF //
+extern consvar_t cv_stunserver;
+// END THAT //
 extern consvar_t cv_showjoinaddress;
 extern consvar_t cv_playbackspeed;
 
@@ -397,6 +417,10 @@ extern tic_t servermaxping;
 extern consvar_t cv_netticbuffer, cv_allownewplayer, cv_joinnextround, cv_maxplayers, cv_joindelay, cv_rejointimeout;
 extern consvar_t cv_resynchattempts, cv_blamecfail;
 extern consvar_t cv_maxsend, cv_noticedownload, cv_downloadspeed;
+
+// DISCORD STUFF: INVITATION EDITION //
+extern consvar_t cv_discordinvites;
+// PLEASE HELP ME //
 
 // Used in d_net, the only dependence
 tic_t ExpandTics(INT32 low, INT32 node);
@@ -461,5 +485,69 @@ extern UINT8 adminpassmd5[16];
 extern boolean adminpasswordset;
 
 extern boolean hu_stopped;
+
+// STAR STUFF //
+// Expose Some Net Things for Extra STAR Stuff
+void RenewHolePunch(void);
+void PT_WillResendGamestate(void);
+
+// Expose Some Snake Things for Extra STAR Stuff
+#define SNAKE_SPEED 5
+
+#define SNAKE_NUM_BLOCKS_X 20
+#define SNAKE_NUM_BLOCKS_Y 10
+#define SNAKE_BLOCK_SIZE 12
+#define SNAKE_BORDER_SIZE 12
+
+#define SNAKE_MAP_WIDTH  (SNAKE_NUM_BLOCKS_X * SNAKE_BLOCK_SIZE)
+#define SNAKE_MAP_HEIGHT (SNAKE_NUM_BLOCKS_Y * SNAKE_BLOCK_SIZE)
+
+#define SNAKE_LEFT_X ((BASEVIDWIDTH - SNAKE_MAP_WIDTH) / 2 - SNAKE_BORDER_SIZE)
+#define SNAKE_RIGHT_X (SNAKE_LEFT_X + SNAKE_MAP_WIDTH + SNAKE_BORDER_SIZE * 2 - 1)
+#define SNAKE_BOTTOM_Y (BASEVIDHEIGHT - 48)
+#define SNAKE_TOP_Y (SNAKE_BOTTOM_Y - SNAKE_MAP_HEIGHT - SNAKE_BORDER_SIZE * 2 + 1)
+
+enum snake_bonustype_s {
+	SNAKE_BONUS_NONE = 0,
+	SNAKE_BONUS_SLOW,
+	SNAKE_BONUS_FAST,
+	SNAKE_BONUS_GHOST,
+	SNAKE_BONUS_NUKE,
+	SNAKE_BONUS_SCISSORS,
+	SNAKE_BONUS_REVERSE,
+	SNAKE_BONUS_EGGMAN,
+	SNAKE_NUM_BONUSES,
+};
+
+typedef struct snake_s
+{
+	boolean paused;
+	boolean pausepressed;
+	tic_t time;
+	tic_t nextupdate;
+	boolean gameover;
+	UINT8 background;
+
+	UINT16 snakelength;
+	enum snake_bonustype_s snakebonus;
+	tic_t snakebonustime;
+	UINT8 snakex[SNAKE_NUM_BLOCKS_X * SNAKE_NUM_BLOCKS_Y];
+	UINT8 snakey[SNAKE_NUM_BLOCKS_X * SNAKE_NUM_BLOCKS_Y];
+	UINT8 snakedir[SNAKE_NUM_BLOCKS_X * SNAKE_NUM_BLOCKS_Y];
+
+	UINT8 applex;
+	UINT8 appley;
+
+	enum snake_bonustype_s bonustype;
+	UINT8 bonusx;
+	UINT8 bonusy;
+} snake_t;
+extern snake_t *snake;
+
+void Snake_Initialise(void);
+void Snake_Draw(void);
+void Snake_Handle(void);
+
+boolean Snake_Joy_Grabber(event_t *ev);
 
 #endif

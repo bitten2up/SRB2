@@ -26,6 +26,10 @@
 // Called by main loop.
 void ST_Ticker(boolean run);
 
+#ifdef HAVE_DISCORDRPC
+void ST_AskToJoinEnvelope(void); // DISCORD STUFFS: Called when you have Both Discord RPC and Discord Asks Enabled
+#endif
+
 // Called by main loop.
 void ST_Drawer(void);
 
@@ -123,5 +127,13 @@ typedef enum
 extern hudinfo_t hudinfo[NUMHUDITEMS];
 
 extern UINT16 objectsdrawn;
+
+// STAR STUFF LOL //
+// Jukebox
+void ST_drawJukebox(void);
+extern boolean initJukeboxHUD;
+
+// Easter
+void ST_drawEggs(void);
 
 #endif

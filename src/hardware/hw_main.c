@@ -169,12 +169,17 @@ ps_metric_t ps_hw_batchdrawtime = {0};
 boolean gl_init = false;
 boolean gl_maploaded = false;
 boolean gl_sessioncommandsadded = false;
-boolean gl_shadersavailable = true;
+// false if shaders have not been initialized yet, or if shaders are not available
+boolean gl_shadersavailable = false;
+
+// Whether the internal state is set to palette rendering or not.
+static boolean gl_palette_rendering_state = false;
 
 // ==========================================================================
 // Lighting
 // ==========================================================================
 
+// Returns true if shaders can be used.
 static boolean HWR_UseShader(void)
 {
 	return (cv_glshaders.value && gl_shadersavailable);
@@ -234,6 +239,11 @@ void HWR_Lighting(FSurfaceInfo *Surface, INT32 light_level, extracolormap_t *col
 	Surface->LightInfo.light_level = light_level;
 	Surface->LightInfo.fade_start = (colormap != NULL) ? colormap->fadestart : 0;
 	Surface->LightInfo.fade_end = (colormap != NULL) ? colormap->fadeend : 31;
+
+	if (HWR_ShouldUsePaletteRendering())
+		Surface->LightTableId = HWR_GetLightTableID(colormap);
+	else
+		Surface->LightTableId = 0;
 }
 
 UINT8 HWR_FogBlockAlpha(INT32 light, extracolormap_t *colormap) // Let's see if this can work
@@ -364,7 +374,7 @@ static void HWR_RenderPlane(subsector_t *subsector, extrasubsector_t *xsub, bool
 	FOutVector *v3d;
 	polyvertex_t *pv;
 	pslope_t *slope = NULL;
-	INT32 shader = SHADER_DEFAULT;
+	INT32 shader = -1;
 
 	size_t nrPlaneVerts;
 	INT32 i;
@@ -768,7 +778,7 @@ static void HWR_AddTransparentWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, I
 //
 static void HWR_ProjectWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blendmode, INT32 lightlevel, extracolormap_t *wallcolormap)
 {
-	INT32 shader = SHADER_DEFAULT;
+	INT32 shader = -1;
 
 	HWR_Lighting(pSurf, lightlevel, wallcolormap);
 
@@ -820,8 +830,12 @@ static float HWR_ClipViewSegment(INT32 x, polyvertex_t *v1, polyvertex_t *v2)
 }
 #endif
 
+//
+// HWR_SplitWall
+//
 // SoM: split up and light walls according to the lightlist.
 // This may also include leaving out parts of the wall that can't be seen
+//
 static void HWR_SplitWall(sector_t *sector, FOutVector *wallVerts, INT32 texnum, FSurfaceInfo* Surf, INT32 cutflag, ffloor_t *pfloor, FBITFIELD polyflags)
 {
 	float realtop, realbot, top, bot;
@@ -881,13 +895,15 @@ static void HWR_SplitWall(sector_t *sector, FOutVector *wallVerts, INT32 texnum,
 		{
 			if (pfloor && (pfloor->fofflags & FOF_FOG))
 			{
-				lightnum = HWR_CalcWallLight(pfloor->master->frontsector->lightlevel, v1x, v1y, v2x, v2y);
+				lightnum = pfloor->master->frontsector->lightlevel;
 				colormap = pfloor->master->frontsector->extra_colormap;
+				lightnum = colormap ? lightnum : HWR_CalcWallLight(lightnum, v1x, v1y, v2x, v2y);
 			}
 			else
 			{
-				lightnum = HWR_CalcWallLight(*list[i].lightlevel, v1x, v1y, v2x, v2y);
+				lightnum = *list[i].lightlevel;
 				colormap = *list[i].extra_colormap;
+				lightnum = colormap ? lightnum : HWR_CalcWallLight(lightnum, v1x, v1y, v2x, v2y);
 			}
 		}
 
@@ -1101,8 +1117,12 @@ static void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 	float cliplow = (float)texturehpeg;
 	float cliphigh = (float)(texturehpeg + (gl_curline->flength*FRACUNIT));
 
-	FUINT lightnum = HWR_CalcWallLight(gl_frontsector->lightlevel, vs.x, vs.y, ve.x, ve.y);
-	extracolormap_t *colormap = gl_frontsector->extra_colormap;
+	FUINT lightnum;
+	extracolormap_t *colormap = NULL;
+
+	lightnum = gl_frontsector->lightlevel;
+	colormap = gl_frontsector->extra_colormap;
+	lightnum = colormap ? lightnum : HWR_CalcWallLight(lightnum, vs.x, vs.y, ve.x, ve.y);
 
 	FSurfaceInfo Surf;
 	Surf.PolyColor.s.alpha = 255;
@@ -1681,8 +1701,9 @@ static void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 
 					blendmode = PF_Fog|PF_NoTexture;
 
-					lightnum = HWR_CalcWallLight(rover->master->frontsector->lightlevel, vs.x, vs.y, ve.x, ve.y);
+					lightnum = rover->master->frontsector->lightlevel;
 					colormap = rover->master->frontsector->extra_colormap;
+					lightnum = colormap ? lightnum : HWR_CalcWallLight(lightnum, vs.x, vs.y, ve.x, ve.y);
 
 					Surf.PolyColor.s.alpha = HWR_FogBlockAlpha(rover->master->frontsector->lightlevel, rover->master->frontsector->extra_colormap);
 
@@ -1695,7 +1716,7 @@ static void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 				{
 					FBITFIELD blendmode = PF_Masked;
 
-					if ((rover->fofflags & FOF_TRANSLUCENT && !(rover->fofflags & FOF_SPLAT)) || rover->blend)
+					if ((rover->fofflags & FOF_TRANSLUCENT && !(rover->fofflags & FOF_SPLAT)) || (rover->fofflags & FOF_TRANSLUCENT && rover->alpha < 256) || rover->blend) // STAR NOTE: edited for palette rendering
 					{
 						blendmode = rover->blend ? HWR_GetBlendModeFlag(rover->blend) : PF_Translucent;
 						Surf.PolyColor.s.alpha = (UINT8)rover->alpha-1 > 255 ? 255 : rover->alpha-1;
@@ -1804,8 +1825,9 @@ static void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 
 					blendmode = PF_Fog|PF_NoTexture;
 
-					lightnum = HWR_CalcWallLight(rover->master->frontsector->lightlevel, vs.x, vs.y, ve.x, ve.y);
+					lightnum = rover->master->frontsector->lightlevel;
 					colormap = rover->master->frontsector->extra_colormap;
+					lightnum = colormap ? lightnum : HWR_CalcWallLight(lightnum, vs.x, vs.y, ve.x, ve.y);
 
 					Surf.PolyColor.s.alpha = HWR_FogBlockAlpha(rover->master->frontsector->lightlevel, rover->master->frontsector->extra_colormap);
 
@@ -1818,7 +1840,7 @@ static void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 				{
 					FBITFIELD blendmode = PF_Masked;
 
-					if ((rover->fofflags & FOF_TRANSLUCENT && !(rover->fofflags & FOF_SPLAT)) || rover->blend)
+					if ((rover->fofflags & FOF_TRANSLUCENT && !(rover->fofflags & FOF_SPLAT)) || (rover->fofflags & FOF_TRANSLUCENT && rover->alpha < 256) || rover->blend) // STAR NOTE: edited for palette rendering
 					{
 						blendmode = rover->blend ? HWR_GetBlendModeFlag(rover->blend) : PF_Translucent;
 						Surf.PolyColor.s.alpha = (UINT8)rover->alpha-1 > 255 ? 255 : rover->alpha-1;
@@ -2643,7 +2665,7 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 {
 	FSurfaceInfo Surf;
 	FOutVector *v3d;
-	INT32 shader = SHADER_DEFAULT;
+	INT32 shader = -1;
 
 	size_t nrPlaneVerts = polysector->numVertices;
 	INT32 i;
@@ -2982,13 +3004,13 @@ static void HWR_Subsector(size_t num)
 		}
 
 		light = R_GetPlaneLight(gl_frontsector, locFloorHeight, false);
-		if (gl_frontsector->floorlightsec == -1 && !gl_frontsector->floorlightabsolute)
-			floorlightlevel = max(0, min(255, *gl_frontsector->lightlist[light].lightlevel + gl_frontsector->floorlightlevel));
+		if (gl_frontsector->floorlightsec == -1)
+			floorlightlevel = *gl_frontsector->lightlist[light].lightlevel;
 		floorcolormap = *gl_frontsector->lightlist[light].extra_colormap;
 
 		light = R_GetPlaneLight(gl_frontsector, locCeilingHeight, false);
-		if (gl_frontsector->ceilinglightsec == -1 && !gl_frontsector->ceilinglightabsolute)
-			ceilinglightlevel = max(0, min(255, *gl_frontsector->lightlist[light].lightlevel + gl_frontsector->ceilinglightlevel));
+		if (gl_frontsector->ceilinglightsec == -1)
+			ceilinglightlevel = *gl_frontsector->lightlist[light].lightlevel;
 		ceilingcolormap = *gl_frontsector->lightlist[light].extra_colormap;
 	}
 
@@ -3085,7 +3107,7 @@ static void HWR_Subsector(size_t num)
 					                       alpha, rover->master->frontsector, PF_Fog|PF_NoTexture,
 										   true, rover->master->frontsector->extra_colormap);
 				}
-				else if ((rover->fofflags & FOF_TRANSLUCENT && !(rover->fofflags & FOF_SPLAT)) || rover->blend) // SoM: Flags are more efficient
+				else if ((rover->fofflags & FOF_TRANSLUCENT && !(rover->fofflags & FOF_SPLAT)) || (rover->fofflags & FOF_TRANSLUCENT && rover->alpha < 256) || rover->blend) // SoM: Flags are more efficient //* STAR NOTE: edited for palette rendering *//
 				{
 					light = R_GetPlaneLight(gl_frontsector, centerHeight, dup_viewz < cullHeight ? true : false);
 
@@ -3131,7 +3153,7 @@ static void HWR_Subsector(size_t num)
 					                       alpha, rover->master->frontsector, PF_Fog|PF_NoTexture,
 										   true, rover->master->frontsector->extra_colormap);
 				}
-				else if ((rover->fofflags & FOF_TRANSLUCENT && !(rover->fofflags & FOF_SPLAT)) || rover->blend)
+				else if ((rover->fofflags & FOF_TRANSLUCENT && !(rover->fofflags & FOF_SPLAT)) || (rover->fofflags & FOF_TRANSLUCENT && rover->alpha < 256) || rover->blend) // STAR NOTE: edited for palette rendering
 				{
 					light = R_GetPlaneLight(gl_frontsector, centerHeight, dup_viewz < cullHeight ? true : false);
 
@@ -3541,7 +3563,7 @@ static boolean HWR_DoCulling(line_t *cullheight, line_t *viewcullheight, float v
 	return false;
 }
 
-static void HWR_DrawDropShadow(mobj_t *thing, fixed_t scale)
+static void HWR_DrawShadows(gl_vissprite_t *spr, mobj_t *thing, fixed_t scale)
 {
 	patch_t *gpatch;
 	FOutVector shadowVerts[4];
@@ -3549,7 +3571,7 @@ static void HWR_DrawDropShadow(mobj_t *thing, fixed_t scale)
 	float fscale; float fx; float fy; float offset;
 	extracolormap_t *colormap = NULL;
 	FBITFIELD blendmode = PF_Translucent|PF_Modulated;
-	INT32 shader = SHADER_DEFAULT;
+	INT32 shader = -1;
 	UINT8 i;
 	INT32 heightsec, phs;
 	SINT8 flip = P_MobjFlip(thing);
@@ -3600,7 +3622,7 @@ static void HWR_DrawDropShadow(mobj_t *thing, fixed_t scale)
 	if (alpha >= 255) return;
 	alpha = 255 - alpha;
 
-	gpatch = (patch_t *)W_CachePatchName("DSHADOW", PU_SPRITE);
+	gpatch = (cv_shadow.value == 2 ? (spr->gpatch) : ((patch_t *)W_CachePatchName("DSHADOW", PU_SPRITE))); // STAR NOTE: i was here lol
 	if (!(gpatch && ((GLPatch_t *)gpatch->hardware)->mipmap->format)) return;
 	HWR_GetPatch(gpatch);
 
@@ -3626,12 +3648,60 @@ static void HWR_DrawDropShadow(mobj_t *thing, fixed_t scale)
 	shadowVerts[1].z = shadowVerts[2].z = fy - offset;
 	shadowVerts[0].z = shadowVerts[3].z = fy + offset;
 
+	// STAR NOTE //
+	if (cv_shadow.value == 2)
+	{
+		shadowVerts[0].x = shadowVerts[3].x = spr->x1;
+		shadowVerts[2].x = shadowVerts[1].x = spr->x2;
+		shadowVerts[0].z = shadowVerts[3].z = spr->z1;
+		shadowVerts[2].z = shadowVerts[1].z = spr->z2;
+
+		if (thing && fabsf(fscale - 1.0f) > 1.0E-36f)
+		{
+			// Always a pixel above the floor, perfectly flat.
+			for (i = 0; i < 4; i++)
+			{
+				if (groundslope)
+					slopez = P_GetSlopeZAt(groundslope, FLOAT_TO_FIXED(shadowVerts[i].x), FLOAT_TO_FIXED(shadowVerts[i].z));
+				shadowVerts[i].y = (groundslope ? FIXED_TO_FLOAT(slopez) : FIXED_TO_FLOAT(groundz))/2 + flip * 0.05f;
+			}
+
+			// Now transform the TOP vertices along the floor in the direction of the camera
+			shadowVerts[3].x = spr->x1 + ((gpatch->height * FIXED_TO_FLOAT(scale)) + offset) * gl_viewcos;
+			shadowVerts[2].x = spr->x2 + ((gpatch->height * FIXED_TO_FLOAT(scale)) + offset) * gl_viewcos;
+			shadowVerts[3].z = spr->z1 + ((gpatch->height * FIXED_TO_FLOAT(scale)) + offset) * gl_viewsin;
+			shadowVerts[2].z = spr->z2 + ((gpatch->height * FIXED_TO_FLOAT(scale)) + offset) * gl_viewsin;
+		}
+		else
+		{
+			// Always a pixel above the floor, perfectly flat.
+			for (i = 0; i < 4; i++)
+			{
+				if (groundslope)
+					slopez = P_GetSlopeZAt(groundslope, FLOAT_TO_FIXED(shadowVerts[i].x), FLOAT_TO_FIXED(shadowVerts[i].z));
+				shadowVerts[i].y = (groundslope ? FIXED_TO_FLOAT(slopez) : FIXED_TO_FLOAT(groundz))/2 + flip * 0.05f;
+			}
+
+			// Now transform the TOP vertices along the floor in the direction of the camera
+			shadowVerts[3].x = spr->x1 + (gpatch->height + offset) * gl_viewcos;
+			shadowVerts[2].x = spr->x2 + (gpatch->height + offset) * gl_viewcos;
+			shadowVerts[3].z = spr->z1 + (gpatch->height + offset) * gl_viewsin;
+			shadowVerts[2].z = spr->z2 + (gpatch->height + offset) * gl_viewsin;
+		}
+	}
+	// END THIS //
+
 	for (i = 0; i < 4; i++)
 	{
 		float oldx = shadowVerts[i].x;
 		float oldy = shadowVerts[i].z;
-		shadowVerts[i].x = fx + ((oldx - fx) * gl_viewcos) - ((oldy - fy) * gl_viewsin);
-		shadowVerts[i].z = fy + ((oldx - fx) * gl_viewsin) + ((oldy - fy) * gl_viewcos);
+
+		// STAR NOTE: i was here lol
+		if (cv_shadow.value != 2 || cv_realisticshadowscanrotate.value)
+		{
+			shadowVerts[i].x = fx + ((oldx - fx) * gl_viewcos) - ((oldy - fy) * gl_viewsin);
+			shadowVerts[i].z = fy + ((oldx - fx) * gl_viewsin) + ((oldy - fy) * gl_viewcos);
+		}
 	}
 
 	if (groundslope)
@@ -3653,6 +3723,36 @@ static void HWR_DrawDropShadow(mobj_t *thing, fixed_t scale)
 
 	shadowVerts[3].t = shadowVerts[2].t = 0;
 	shadowVerts[0].t = shadowVerts[1].t = ((GLPatch_t *)gpatch->hardware)->max_t;
+
+	// STAR STUFF: ELECTRIC BOOGALO //
+	if (cv_shadow.value == 2)
+	{
+		if (spr->flip)
+		{
+			shadowVerts[0].s = shadowVerts[3].s = ((GLPatch_t *)gpatch->hardware)->max_s;
+			shadowVerts[2].s = shadowVerts[1].s = 0;
+		}
+		else
+		{
+			shadowVerts[0].s = shadowVerts[3].s = 0;
+			shadowVerts[2].s = shadowVerts[1].s = ((GLPatch_t *)gpatch->hardware)->max_s;
+		}
+
+#if 0
+		// flip the texture coords (look familiar?)
+		if (spr->vflip)
+		{
+			shadowVerts[3].t = shadowVerts[2].t = ((GLPatch_t *)gpatch->hardware)->max_t;
+			shadowVerts[0].t = shadowVerts[1].t = 0;
+		}
+		else
+		{
+			shadowVerts[3].t = shadowVerts[2].t = 0;
+			shadowVerts[0].t = shadowVerts[1].t = ((GLPatch_t *)gpatch->hardware)->max_t;
+		}
+#endif
+	}
+	// END THAT //
 
 	if (!(thing->renderflags & RF_NOCOLORMAPS))
 	{
@@ -3676,6 +3776,15 @@ static void HWR_DrawDropShadow(mobj_t *thing, fixed_t scale)
 		shader = SHADER_SPRITE;
 		blendmode |= PF_ColorMapped;
 	}
+
+	// STAR STUFF //
+	if (cv_shadow.value == 2)
+	{
+		sSurf.PolyColor.s.red = 0x00;
+		sSurf.PolyColor.s.blue = 0x00;
+		sSurf.PolyColor.s.green = 0x00;
+	}
+	// END THAT PLEASE //
 
 	HWR_ProcessPolygon(&sSurf, shadowVerts, 4, blendmode, shader, false);
 }
@@ -3757,7 +3866,7 @@ static void HWR_SplitSprite(gl_vissprite_t *spr)
 	boolean lightset = true;
 	FBITFIELD blend = 0;
 	FBITFIELD occlusion;
-	INT32 shader = SHADER_DEFAULT;
+	INT32 shader = -1;
 	boolean use_linkdraw_hack = false;
 	UINT8 alpha;
 
@@ -4071,7 +4180,12 @@ static void HWR_DrawSprite(gl_vissprite_t *spr)
 #ifdef ALAM_LIGHTING
 	if (!(spr->mobj->flags2 & MF2_DEBRIS) && (spr->mobj->sprite != SPR_PLAY ||
 	 (spr->mobj->player && spr->mobj->player->powers[pw_super])))
-		HWR_DL_AddLight(spr, gpatch);
+	{
+		GLPatch_t *coronapatch;
+		coronapatch = ((GLPatch_t *)gpatch->hardware);
+
+		HWR_DL_AddLight(spr, coronapatch);
+	}
 #endif
 
 	// create the sprite billboard
@@ -4283,7 +4397,7 @@ static void HWR_DrawSprite(gl_vissprite_t *spr)
 	}
 
 	{
-		INT32 shader = SHADER_DEFAULT;
+		INT32 shader = -1;
 		FBITFIELD blend = 0;
 		FBITFIELD occlusion;
 		boolean use_linkdraw_hack = false;
@@ -4357,7 +4471,7 @@ static void HWR_DrawSprite(gl_vissprite_t *spr)
 // Sprite drawer for precipitation
 static inline void HWR_DrawPrecipitationSprite(gl_vissprite_t *spr)
 {
-	INT32 shader = SHADER_DEFAULT;
+	INT32 shader = -1;
 	FBITFIELD blend = 0;
 	FOutVector wallVerts[4];
 	patch_t *gpatch;
@@ -4795,7 +4909,6 @@ static void HWR_CreateDrawNodes(void)
 
 	// Okay! Let's draw it all! Woo!
 	HWD.pfnSetTransform(&atransform);
-	HWD.pfnSetShader(SHADER_DEFAULT);
 
 	for (i = 0; i < p; i++)
 	{
@@ -4858,11 +4971,16 @@ static void HWR_DrawSprites(void)
 		else
 #endif
 		{
-			if (spr->mobj && spr->mobj->shadowscale && cv_shadow.value && !skipshadow)
+			// STAR NOTE: i was here lol
+			if (spr->mobj && spr->mobj->shadowscale)
 			{
-				HWR_DrawDropShadow(spr->mobj, spr->mobj->shadowscale);
+				if ((cv_shadow.value == 1 && !skipshadow)
+					|| (cv_shadow.value == 2))
+					
+					HWR_DrawShadows(spr, spr->mobj, spr->mobj->shadowscale);
 			}
 
+			// STAR NOTE: i was also here lol
 			if ((spr->mobj->flags2 & MF2_LINKDRAW) && spr->mobj->tracer)
 			{
 				// If this linkdraw sprite is behind a sprite that has a shadow,
@@ -4870,10 +4988,16 @@ static void HWR_DrawSprites(void)
 				// the linkdraw sprite because the linkdraw sprite does not modify the z-buffer.
 				// The !skipshadow check is there in case there are multiple linkdraw sprites connected
 				// to the same tracer, so the tracer's shadow only gets drawn once.
-				if (cv_shadow.value && !skipshadow && spr->dispoffset < 0 && spr->mobj->tracer->shadowscale)
+				if (spr->mobj->tracer->shadowscale)
 				{
-					HWR_DrawDropShadow(spr->mobj->tracer, spr->mobj->tracer->shadowscale);
-					skipshadow = true;
+					if ((cv_shadow.value == 1 && !skipshadow && spr->dispoffset < 0)
+						|| (cv_shadow.value == 2 && !skipshadow))
+					{
+						
+						HWR_DrawShadows(spr, spr->mobj->tracer, spr->mobj->tracer->shadowscale);
+						skipshadow = true;
+					}
+
 					// The next sprite in this loop should be either another linkdraw sprite or the tracer.
 					// When the tracer is inevitably encountered, skipshadow will cause it's shadow
 					// to get skipped and skipshadow will get set to false by the 'else' clause below.
@@ -5799,7 +5923,8 @@ static void HWR_DrawSkyBackground(player_t *player)
 			HWR_BuildSkyDome();
 		}
 
-		HWD.pfnSetShader(SHADER_SKY); // sky shader
+		if (HWR_UseShader())
+			HWD.pfnSetShader(HWR_GetShaderFromTarget(SHADER_SKY)); // sky shader
 		HWD.pfnSetTransform(&dometransform);
 		HWD.pfnRenderSkyDome(&gl_sky);
 	}
@@ -5885,8 +6010,6 @@ static void HWR_DrawSkyBackground(player_t *player)
 		HWD.pfnUnSetShader();
 		HWD.pfnDrawPolygon(NULL, v, 4, 0);
 	}
-
-	HWD.pfnSetShader(SHADER_DEFAULT);
 }
 
 
@@ -5976,14 +6099,15 @@ static void HWR_SetTransformAiming(FTransform *trans, player_t *player, boolean 
 //
 static void HWR_SetShaderState(void)
 {
-	hwdshaderoption_t state = cv_glshaders.value;
+	INT32 state = cv_glshaders.value;
 
 	if (!cv_glallowshaders.value)
-		state = (cv_glshaders.value == HWD_SHADEROPTION_ON ? HWD_SHADEROPTION_NOCUSTOM : cv_glshaders.value);
+		state = cv_glshaders.value;
 
-	HWD.pfnSetSpecialState(HWD_SET_SHADERS, (INT32)state);
-	HWD.pfnSetShader(SHADER_DEFAULT);
+	HWD.pfnSetSpecialState(HWD_SET_SHADERS, (INT32)(state));
+	HWD.pfnSetShader(0);
 }
+
 
 // ==========================================================================
 // Same as rendering the player view, but from the skybox object
@@ -5998,6 +6122,7 @@ void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 	else
 		type = &postimgtype;
 
+	if (!HWR_ShouldUsePaletteRendering())
 	{
 		// do we really need to save player (is it not the same)?
 		player_t *saved_player = stplyr;
@@ -6101,9 +6226,6 @@ void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 	//04/01/2000: Hurdler: added for T&L
 	//                     Actually it only works on Walls and Planes
 	HWD.pfnSetTransform(&atransform);
-
-	// Reset the shader state.
-	HWR_SetShaderState();
 
 	validcount++;
 
@@ -6211,6 +6333,7 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 		HWR_RenderSkyboxView(viewnumber, player); // This is drawn before everything else so it is placed behind
 	PS_STOP_TIMING(ps_hw_skyboxtime);
 
+	if (!HWR_ShouldUsePaletteRendering())
 	{
 		// do we really need to save player (is it not the same)?
 		player_t *saved_player = stplyr;
@@ -6316,9 +6439,6 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	//                     Actually it only works on Walls and Planes
 	HWD.pfnSetTransform(&atransform);
 
-	// Reset the shader state.
-	HWR_SetShaderState();
-
 	ps_numbspcalls.value.i = 0;
 	ps_numpolyobjects.value.i = 0;
 	PS_START_TIMING(ps_bsptime);
@@ -6408,6 +6528,56 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	HWD.pfnGClipRect(0, 0, vid.width, vid.height, NZCLIP_PLANE);
 }
 
+// Returns whether palette rendering is "actually enabled."
+// Can't have palette rendering if shaders are disabled.
+boolean HWR_ShouldUsePaletteRendering(void)
+{
+	return (cv_glpaletterendering.value && HWR_UseShader());
+}
+
+// enable or disable palette rendering state depending on settings and availability
+// called when relevant settings change
+// shader recompilation is done in the cvar callback
+static void HWR_TogglePaletteRendering(void)
+{
+	// which state should we go to?
+	if (HWR_ShouldUsePaletteRendering())
+	{
+		// are we not in that state already?
+		if (!gl_palette_rendering_state)
+		{
+			gl_palette_rendering_state = true;
+
+			// The textures will still be converted to RGBA by r_opengl.
+			// This however makes hw_cache use paletted blending for composite textures!
+			// (patchformat is not touched)
+			textureformat = GL_TEXFMT_P_8;
+
+			HWR_SetMapPalette();
+			HWR_SetPalette(pLocalPalette);
+
+			// If the r_opengl "texture palette" stays the same during this switch, these textures
+			// will not be cleared out. However they are still out of date since the
+			// composite texture blending method has changed. Therefore they need to be cleared.
+			HWR_LoadMapTextures(numtextures);
+		}
+	}
+	else
+	{
+		// are we not in that state already?
+		if (gl_palette_rendering_state)
+		{
+			gl_palette_rendering_state = false;
+			textureformat = GL_TEXFMT_RGBA;
+			HWR_SetPalette(pLocalPalette);
+			// If the r_opengl "texture palette" stays the same during this switch, these textures
+			// will not be cleared out. However they are still out of date since the
+			// composite texture blending method has changed. Therefore they need to be cleared.
+			HWR_LoadMapTextures(numtextures);
+		}
+	}
+}
+
 void HWR_LoadLevel(void)
 {
 #ifdef ALAM_LIGHTING
@@ -6421,6 +6591,9 @@ void HWR_LoadLevel(void)
 	HWR_ClearSkyDome();
 	HWR_BuildSkyDome();
 
+	if (HWR_ShouldUsePaletteRendering())
+		HWR_SetMapPalette();
+
 	gl_maploaded = true;
 }
 
@@ -6428,13 +6601,17 @@ void HWR_LoadLevel(void)
 //                                                         3D ENGINE COMMANDS
 // ==========================================================================
 
-static CV_PossibleValue_t glshaders_cons_t[] = {{HWD_SHADEROPTION_OFF, "Off"}, {HWD_SHADEROPTION_ON, "On"}, {HWD_SHADEROPTION_NOCUSTOM, "Ignore custom shaders"}, {0, NULL}};
+static CV_PossibleValue_t glshaders_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Ignore custom shaders"}, {0, NULL}};
 static CV_PossibleValue_t glmodelinterpolation_cons_t[] = {{0, "Off"}, {1, "Sometimes"}, {2, "Always"}, {0, NULL}};
 static CV_PossibleValue_t glfakecontrast_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Smooth"}, {0, NULL}};
 static CV_PossibleValue_t glshearing_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Third-person"}, {0, NULL}};
 
 static void CV_glfiltermode_OnChange(void);
 static void CV_glanisotropic_OnChange(void);
+static void CV_glmodellighting_OnChange(void);
+static void CV_glpaletterendering_OnChange(void);
+static void CV_glpalettedepth_OnChange(void);
+static void CV_glshaders_OnChange(void);
 
 static CV_PossibleValue_t glfiltermode_cons_t[]= {{HWD_SET_TEXTUREFILTER_POINTSAMPLED, "Nearest"},
 	{HWD_SET_TEXTUREFILTER_BILINEAR, "Bilinear"}, {HWD_SET_TEXTUREFILTER_TRILINEAR, "Trilinear"},
@@ -6444,7 +6621,7 @@ static CV_PossibleValue_t glfiltermode_cons_t[]= {{HWD_SET_TEXTUREFILTER_POINTSA
 	{0, NULL}};
 CV_PossibleValue_t glanisotropicmode_cons_t[] = {{1, "MIN"}, {16, "MAX"}, {0, NULL}};
 
-consvar_t cv_glshaders = CVAR_INIT ("gr_shaders", "On", CV_SAVE, glshaders_cons_t, NULL);
+consvar_t cv_glshaders = CVAR_INIT ("gr_shaders", "On", CV_SAVE|CV_CALL, glshaders_cons_t, CV_glshaders_OnChange);
 consvar_t cv_glallowshaders = CVAR_INIT ("gr_allowclientshaders", "On", CV_NETVAR, CV_OnOff, NULL);
 consvar_t cv_fovchange = CVAR_INIT ("gr_fovchange", "Off", CV_SAVE, CV_OnOff, NULL);
 
@@ -6457,7 +6634,7 @@ consvar_t cv_glcoronasize = CVAR_INIT ("gr_coronasize", "1", CV_SAVE|CV_FLOAT, 0
 
 consvar_t cv_glmodels = CVAR_INIT ("gr_models", "Off", CV_SAVE, CV_OnOff, NULL);
 consvar_t cv_glmodelinterpolation = CVAR_INIT ("gr_modelinterpolation", "Sometimes", CV_SAVE, glmodelinterpolation_cons_t, NULL);
-consvar_t cv_glmodellighting = CVAR_INIT ("gr_modellighting", "Off", CV_SAVE, CV_OnOff, NULL);
+consvar_t cv_glmodellighting = CVAR_INIT ("gr_modellighting", "Off", CV_SAVE|CV_CALL, CV_OnOff, CV_glmodellighting_OnChange);
 
 consvar_t cv_glshearing = CVAR_INIT ("gr_shearing", "Off", CV_SAVE, glshearing_cons_t, NULL);
 consvar_t cv_glspritebillboarding = CVAR_INIT ("gr_spritebillboarding", "Off", CV_SAVE, CV_OnOff, NULL);
@@ -6472,16 +6649,60 @@ consvar_t cv_glsolvetjoin = CVAR_INIT ("gr_solvetjoin", "On", 0, CV_OnOff, NULL)
 
 consvar_t cv_glbatching = CVAR_INIT ("gr_batching", "On", 0, CV_OnOff, NULL);
 
+static CV_PossibleValue_t glpalettedepth_cons_t[] = {{16, "16 bits"}, {24, "24 bits"}, {0, NULL}};
+
+consvar_t cv_glpaletterendering = CVAR_INIT ("gr_paletterendering", "Off", CV_SAVE|CV_CALL, CV_OnOff, CV_glpaletterendering_OnChange);
+consvar_t cv_glpalettedepth = CVAR_INIT ("gr_palettedepth", "16 bits", CV_SAVE|CV_CALL, glpalettedepth_cons_t, CV_glpalettedepth_OnChange);
+
+#define ONLY_IF_GL_LOADED if (vid.glstate != VID_GL_LIBRARY_LOADED) return;
+
 static void CV_glfiltermode_OnChange(void)
 {
-	if (rendermode == render_opengl)
-		HWD.pfnSetSpecialState(HWD_SET_TEXTUREFILTERMODE, cv_glfiltermode.value);
+	ONLY_IF_GL_LOADED
+	HWD.pfnSetSpecialState(HWD_SET_TEXTUREFILTERMODE, cv_glfiltermode.value);
 }
 
 static void CV_glanisotropic_OnChange(void)
 {
-	if (rendermode == render_opengl)
-		HWD.pfnSetSpecialState(HWD_SET_TEXTUREANISOTROPICMODE, cv_glanisotropicmode.value);
+	ONLY_IF_GL_LOADED
+	HWD.pfnSetSpecialState(HWD_SET_TEXTUREANISOTROPICMODE, cv_glanisotropicmode.value);
+}
+
+static void CV_glmodellighting_OnChange(void)
+{
+	ONLY_IF_GL_LOADED
+	// if shaders have been compiled, then they now need to be recompiled.
+	if (gl_shadersavailable)
+		HWR_CompileShaders();
+}
+
+static void CV_glpaletterendering_OnChange(void)
+{
+	ONLY_IF_GL_LOADED
+	if (gl_shadersavailable)
+	{
+		HWR_CompileShaders();
+		HWR_TogglePaletteRendering();
+	}
+}
+
+static void CV_glpalettedepth_OnChange(void)
+{
+	ONLY_IF_GL_LOADED
+	// refresh the screen palette
+	if (HWR_ShouldUsePaletteRendering())
+		HWR_SetPalette(pLocalPalette);
+}
+
+static void CV_glshaders_OnChange(void)
+{
+	ONLY_IF_GL_LOADED
+	HWR_SetShaderState();
+	if (cv_glpaletterendering.value)
+	{
+		// can't do palette rendering without shaders, so update the state if needed
+		HWR_TogglePaletteRendering();
+	}
 }
 
 //added by Hurdler: console varibale that are saved
@@ -6512,6 +6733,9 @@ void HWR_AddCommands(void)
 
 	CV_RegisterVar(&cv_glbatching);
 
+	CV_RegisterVar(&cv_glpaletterendering);
+	CV_RegisterVar(&cv_glpalettedepth);
+
 #ifndef NEWCLIP
 	CV_RegisterVar(&cv_glclipwalls);
 #endif
@@ -6534,6 +6758,8 @@ void HWR_Startup(void)
 	{
 		CONS_Printf("HWR_Startup()...\n");
 
+		textureformat = patchformat = GL_TEXFMT_RGBA;
+
 		HWR_InitPolyPool();
 		HWR_AddSessionCommands();
 		HWR_InitMapTextures();
@@ -6542,13 +6768,11 @@ void HWR_Startup(void)
 		HWR_InitLight();
 #endif
 
+		gl_shadersavailable = HWR_InitShaders();
+		HWR_SetShaderState();
 		HWR_LoadAllCustomShaders();
-		if (!HWR_CompileShaders())
-			gl_shadersavailable = false;
+		HWR_TogglePaletteRendering();
 	}
-
-	if (rendermode == render_opengl)
-		textureformat = patchformat = GL_TEXFMT_RGBA;
 
 	gl_init = true;
 }
@@ -6643,7 +6867,7 @@ void HWR_RenderWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend,
 	FBITFIELD blendmode = blend;
 	UINT8 alpha = pSurf->PolyColor.s.alpha; // retain the alpha
 
-	INT32 shader = SHADER_DEFAULT;
+	INT32 shader = -1;
 
 	// Lighting is done here instead so that fog isn't drawn incorrectly on transparent walls after sorting
 	HWR_Lighting(pSurf, lightlevel, wallcolormap);
@@ -6688,7 +6912,7 @@ void HWR_DoPostProcessor(player_t *player)
 
 	// Armageddon Blast Flash!
 	// Could this even be considered postprocessor?
-	if (player->flashcount)
+	if (player->flashcount && !HWR_ShouldUsePaletteRendering())
 	{
 		FOutVector      v[4];
 		FSurfaceInfo Surf;
@@ -6713,7 +6937,7 @@ void HWR_DoPostProcessor(player_t *player)
 
 	// Capture the screen for intermission and screen waving
 	if(gamestate != GS_INTERMISSION)
-		HWD.pfnMakeScreenTexture();
+		HWD.pfnMakeScreenTexture(HWD_SCREENTEXTURE_GENERIC1);
 
 	if (splitscreen) // Not supported in splitscreen - someone want to add support?
 		return;
@@ -6757,7 +6981,7 @@ void HWR_DoPostProcessor(player_t *player)
 
 		// Capture the screen again for screen waving on the intermission
 		if(gamestate != GS_INTERMISSION)
-			HWD.pfnMakeScreenTexture();
+			HWD.pfnMakeScreenTexture(HWD_SCREENTEXTURE_GENERIC1);
 	}
 	// Flipping of the screen isn't done here anymore
 }
@@ -6765,18 +6989,18 @@ void HWR_DoPostProcessor(player_t *player)
 void HWR_StartScreenWipe(void)
 {
 	//CONS_Debug(DBG_RENDER, "In HWR_StartScreenWipe()\n");
-	HWD.pfnStartScreenWipe();
+	HWD.pfnMakeScreenTexture(HWD_SCREENTEXTURE_WIPE_START);
 }
 
 void HWR_EndScreenWipe(void)
 {
 	//CONS_Debug(DBG_RENDER, "In HWR_EndScreenWipe()\n");
-	HWD.pfnEndScreenWipe();
+	HWD.pfnMakeScreenTexture(HWD_SCREENTEXTURE_WIPE_END);
 }
 
 void HWR_DrawIntermissionBG(void)
 {
-	HWD.pfnDrawIntermissionBG();
+	HWD.pfnDrawScreenTexture(HWD_SCREENTEXTURE_GENERIC1, NULL, 0);
 }
 
 //
@@ -6821,201 +7045,40 @@ void HWR_DoWipe(UINT8 wipenum, UINT8 scrnnum)
 		return;
 
 	HWR_GetFadeMask(wipelumpnum);
-	HWD.pfnDoScreenWipe();
-}
+	if (wipestyle == WIPESTYLE_COLORMAP && HWR_UseShader())
+	{
+		FSurfaceInfo surf = {0};
+		FBITFIELD polyflags = PF_Modulated|PF_NoDepthTest;
 
-void HWR_DoTintedWipe(UINT8 wipenum, UINT8 scrnnum)
-{
-	// It does the same thing
-	HWR_DoWipe(wipenum, scrnnum);
+		polyflags |= (wipestyleflags & WSF_TOWHITE) ? PF_Additive : PF_ReverseSubtract;
+		surf.PolyColor.s.red = FADEREDFACTOR;
+		surf.PolyColor.s.green = FADEGREENFACTOR;
+		surf.PolyColor.s.blue = FADEBLUEFACTOR;
+		// polycolor alpha communicates fadein / fadeout to the shader and the backend
+		surf.PolyColor.s.alpha = (wipestyleflags & WSF_FADEIN) ? 255 : 0;
+
+		HWD.pfnSetShader(HWR_GetShaderFromTarget(SHADER_UI_TINTED_WIPE));
+		HWD.pfnDoScreenWipe(HWD_SCREENTEXTURE_WIPE_START, HWD_SCREENTEXTURE_WIPE_END,
+			&surf, polyflags);
+		HWD.pfnUnSetShader();
+	}
+	else
+	{
+		HWD.pfnDoScreenWipe(HWD_SCREENTEXTURE_WIPE_START, HWD_SCREENTEXTURE_WIPE_END,
+			NULL, 0);
+	}
 }
 
 void HWR_MakeScreenFinalTexture(void)
 {
-    HWD.pfnMakeScreenFinalTexture();
+	int tex = HWR_ShouldUsePaletteRendering() ? HWD_SCREENTEXTURE_GENERIC3 : HWD_SCREENTEXTURE_GENERIC2;
+	HWD.pfnMakeScreenTexture(tex);
 }
 
 void HWR_DrawScreenFinalTexture(int width, int height)
 {
-    HWD.pfnDrawScreenFinalTexture(width, height);
-}
-
-static inline UINT16 HWR_FindShaderDefs(UINT16 wadnum)
-{
-	UINT16 i;
-	lumpinfo_t *lump_p;
-
-	lump_p = wadfiles[wadnum]->lumpinfo;
-	for (i = 0; i < wadfiles[wadnum]->numlumps; i++, lump_p++)
-		if (memcmp(lump_p->name, "SHADERS", 7) == 0)
-			return i;
-
-	return INT16_MAX;
-}
-
-boolean HWR_CompileShaders(void)
-{
-	return HWD.pfnCompileShaders();
-}
-
-customshaderxlat_t shaderxlat[] =
-{
-	{"Flat", SHADER_FLOOR},
-	{"WallTexture", SHADER_WALL},
-	{"Sprite", SHADER_SPRITE},
-	{"Model", SHADER_MODEL},
-	{"ModelLighting", SHADER_MODEL_LIGHTING},
-	{"WaterRipple", SHADER_WATER},
-	{"Fog", SHADER_FOG},
-	{"Sky", SHADER_SKY},
-	{NULL, 0},
-};
-
-void HWR_LoadAllCustomShaders(void)
-{
-	INT32 i;
-
-	// read every custom shader
-	for (i = 0; i < numwadfiles; i++)
-		HWR_LoadCustomShadersFromFile(i, W_FileHasFolders(wadfiles[i]));
-}
-
-void HWR_LoadCustomShadersFromFile(UINT16 wadnum, boolean PK3)
-{
-	UINT16 lump;
-	char *shaderdef, *line;
-	char *stoken;
-	char *value;
-	size_t size;
-	int linenum = 1;
-	int shadertype = 0;
-	int i;
-
-	lump = HWR_FindShaderDefs(wadnum);
-	if (lump == INT16_MAX)
-		return;
-
-	shaderdef = W_CacheLumpNumPwad(wadnum, lump, PU_CACHE);
-	size = W_LumpLengthPwad(wadnum, lump);
-
-	line = Z_Malloc(size+1, PU_STATIC, NULL);
-	M_Memcpy(line, shaderdef, size);
-	line[size] = '\0';
-
-	stoken = strtok(line, "\r\n ");
-	while (stoken)
-	{
-		if ((stoken[0] == '/' && stoken[1] == '/')
-			|| (stoken[0] == '#'))// skip comments
-		{
-			stoken = strtok(NULL, "\r\n");
-			goto skip_field;
-		}
-
-		if (!stricmp(stoken, "GLSL"))
-		{
-			value = strtok(NULL, "\r\n ");
-			if (!value)
-			{
-				CONS_Alert(CONS_WARNING, "HWR_LoadCustomShadersFromFile: Missing shader type (file %s, line %d)\n", wadfiles[wadnum]->filename, linenum);
-				stoken = strtok(NULL, "\r\n"); // skip end of line
-				goto skip_lump;
-			}
-
-			if (!stricmp(value, "VERTEX"))
-				shadertype = 1;
-			else if (!stricmp(value, "FRAGMENT"))
-				shadertype = 2;
-
-skip_lump:
-			stoken = strtok(NULL, "\r\n ");
-			linenum++;
-		}
-		else
-		{
-			value = strtok(NULL, "\r\n= ");
-			if (!value)
-			{
-				CONS_Alert(CONS_WARNING, "HWR_LoadCustomShadersFromFile: Missing shader target (file %s, line %d)\n", wadfiles[wadnum]->filename, linenum);
-				stoken = strtok(NULL, "\r\n"); // skip end of line
-				goto skip_field;
-			}
-
-			if (!shadertype)
-			{
-				CONS_Alert(CONS_ERROR, "HWR_LoadCustomShadersFromFile: Missing shader type (file %s, line %d)\n", wadfiles[wadnum]->filename, linenum);
-				Z_Free(line);
-				return;
-			}
-
-			for (i = 0; shaderxlat[i].type; i++)
-			{
-				if (!stricmp(shaderxlat[i].type, stoken))
-				{
-					size_t shader_size;
-					char *shader_source;
-					char *shader_lumpname;
-					UINT16 shader_lumpnum;
-
-					if (PK3)
-					{
-						shader_lumpname = Z_Malloc(strlen(value) + 12, PU_STATIC, NULL);
-						strcpy(shader_lumpname, "Shaders/sh_");
-						strcat(shader_lumpname, value);
-						shader_lumpnum = W_CheckNumForFullNamePK3(shader_lumpname, wadnum, 0);
-					}
-					else
-					{
-						shader_lumpname = Z_Malloc(strlen(value) + 4, PU_STATIC, NULL);
-						strcpy(shader_lumpname, "SH_");
-						strcat(shader_lumpname, value);
-						shader_lumpnum = W_CheckNumForNamePwad(shader_lumpname, wadnum, 0);
-					}
-
-					if (shader_lumpnum == INT16_MAX)
-					{
-						CONS_Alert(CONS_ERROR, "HWR_LoadCustomShadersFromFile: Missing shader source %s (file %s, line %d)\n", shader_lumpname, wadfiles[wadnum]->filename, linenum);
-						Z_Free(shader_lumpname);
-						continue;
-					}
-
-					shader_size = W_LumpLengthPwad(wadnum, shader_lumpnum);
-					shader_source = Z_Malloc(shader_size, PU_STATIC, NULL);
-					W_ReadLumpPwad(wadnum, shader_lumpnum, shader_source);
-
-					HWD.pfnLoadCustomShader(shaderxlat[i].id, shader_source, shader_size, (shadertype == 2));
-
-					Z_Free(shader_source);
-					Z_Free(shader_lumpname);
-				}
-			}
-
-skip_field:
-			stoken = strtok(NULL, "\r\n= ");
-			linenum++;
-		}
-	}
-
-	Z_Free(line);
-	return;
-}
-
-const char *HWR_GetShaderName(INT32 shader)
-{
-	INT32 i;
-
-	if (shader)
-	{
-		for (i = 0; shaderxlat[i].type; i++)
-		{
-			if (shaderxlat[i].id == shader)
-				return shaderxlat[i].type;
-		}
-
-		return "Unknown";
-	}
-
-	return "Default";
+	int tex = HWR_ShouldUsePaletteRendering() ? HWD_SCREENTEXTURE_GENERIC3 : HWD_SCREENTEXTURE_GENERIC2;
+	HWD.pfnDrawScreenFinalTexture(tex, width, height);
 }
 
 #endif // HWRENDER

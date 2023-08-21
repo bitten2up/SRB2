@@ -212,6 +212,14 @@ static char returnWadPath[256];
 #include "../byteptr.h"
 #endif
 
+#ifdef HAVE_DISCORDRPC
+#include "../discord.h"
+#endif
+
+// STAR STUFF //
+#include "../STAR/star_vars.h"
+// END THAT STUFF //
+
 /**	\brief	The JoyReset function
 
 	\param	JoySet	Joystick info to reset
@@ -340,7 +348,18 @@ static void I_ReportSignal(int num, int coredumped)
 		sigmsg = "SIGFPE - mathematical exception";
 		break;
 	case SIGSEGV:
+		// STAR STUFF //
+#ifdef BLAME_SEV
+		sigmsg = "SIGSEGV - seventh sentinel";
+#else
 		sigmsg = "SIGSEGV - segment violation";
+#endif
+#ifdef APRIL_FOOLS
+		sigmsg = "SIGSEGV - seventh sentinel";
+#else
+		sigmsg = "SIGSEGV - segment violation";
+#endif
+		// END THIS PLEASE //
 		break;
 //	case SIGTERM:
 //		sigmsg = "SIGTERM - Software termination signal from kill";
@@ -1726,8 +1745,8 @@ void I_UpdateMumble(const mobj_t *mobj, const listener_t listener)
 		return;
 
 	if(mumble->uiVersion != 2) {
-		wcsncpy(mumble->name, L"SRB2 "VERSIONSTRINGW, 256);
-		wcsncpy(mumble->description, L"Sonic Robo Blast 2 with integrated Mumble Link support.", 2048);
+		wcsncpy(mumble->name, L"SRB2 "VERSIONSTRINGW"; "TSOURDT3RDVERSIONSTRING" "TSOURDT3RDBYSTARMANIAKGSTRING, 256);
+		wcsncpy(mumble->description, L"Sonic Robo Blast 2; TSoURDt3rd with integrated Mumble Link support.", 2048);
 		mumble->uiVersion = 2;
 	}
 	mumble->uiTick++;
@@ -2348,6 +2367,15 @@ void I_Quit(void)
 	if (quiting) goto death;
 	SDLforceUngrabMouse();
 	quiting = SDL_FALSE;
+#ifdef HAVE_DISCORDRPC
+	// DO DISCORD STUFFS //
+	DRPC_Shutdown();
+	// ENDED DISCORD STUFFS //
+#endif
+	// DO STAR STUFF //
+	if (netgame)
+		STAR_ResetProblematicCommandsAfterNetgames();
+	// DID STAR STUFF //
 	M_SaveConfig(NULL); //save game config, cvars..
 #ifndef NONET
 	D_SaveBan(); // save the ban list
@@ -2414,6 +2442,17 @@ void I_Error(const char *error, ...)
 	va_list argptr;
 	char buffer[8192];
 
+#ifdef HAVE_DISCORDRPC
+	// DO DISCORD STUFFS AGAIN //
+	DRPC_Shutdown();
+	// ENDED DISCORD STUFFS AGAIN //
+#endif
+
+	// DO STAR STUFF AGAIN //
+	if (netgame)
+		STAR_ResetProblematicCommandsAfterNetgames();
+	// DID STAR STUFF AGAIN //
+
 	// recursive error detecting
 	if (shutdowning)
 	{
@@ -2448,7 +2487,7 @@ void I_Error(const char *error, ...)
 			// on the target system
 			if (!M_CheckParm("-dedicated"))
 				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
-					"SRB2 "VERSIONSTRING" Recursive Error",
+					"SRB2 "VERSIONSTRING"; "TSOURDT3RDVERSIONSTRING" "TSOURDT3RDBYSTARMANIAKGSTRING" Recursive Error",
 					buffer, NULL);
 
 			W_Shutdown();
@@ -2493,7 +2532,7 @@ void I_Error(const char *error, ...)
 	// on the target system
 	if (!M_CheckParm("-dedicated"))
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
-			"SRB2 "VERSIONSTRING" Error",
+			"SRB2 "VERSIONSTRING"; "TSOURDT3RDVERSIONSTRING" "TSOURDT3RDBYSTARMANIAKGSTRING" Error",
 			buffer, NULL);
 	// Note that SDL_ShowSimpleMessageBox does *not* require SDL to be
 	// initialized at the time, so calling it after SDL_Quit() is

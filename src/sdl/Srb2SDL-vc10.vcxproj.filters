@@ -477,6 +477,15 @@
     <ClInclude Include="..\w_wad.h">
       <Filter>W_Wad</Filter>
     </ClInclude>
+    <ClInclude Include="..\STAR\star_vars.h">
+      <Filter>G_Game</Filter>
+    </ClInclude>
+    <ClInclude Include="..\STAR\star_webinfo.h">
+      <Filter>G_Game</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libav\LIBAV_coders.h">
+      <Filter>G_Game</Filter>
+    </ClInclude>
     <ClInclude Include="endtxt.h">
       <Filter>SDLApp</Filter>
     </ClInclude>
@@ -726,6 +735,9 @@
     <ClCompile Include="..\hardware\hw_model.c">
       <Filter>Hw_Hardware</Filter>
     </ClCompile>
+    <ClCompile Include="..\hardware\hw_shaders.c">
+      <Filter>Hw_Hardware</Filter>
+    </ClCompile>
     <ClCompile Include="..\hardware\u_list.c">
       <Filter>Hw_Hardware</Filter>
     </ClCompile>
@@ -966,6 +978,12 @@
     <ClCompile Include="..\w_wad.c">
       <Filter>W_Wad</Filter>
     </ClCompile>
+    <ClInclude Include="..\STAR\star_functions.c">
+      <Filter>G_Game</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libav\LIBAV_coders.c">
+      <Filter>G_Game</Filter>
+    </ClInclude>
     <ClCompile Include="dosstr.c">
       <Filter>SDLApp</Filter>
     </ClCompile>

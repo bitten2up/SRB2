@@ -4891,7 +4891,23 @@ const char *const MENUTYPES_LIST[] = {
 	// "MAPAUSE",
 	// "HELP",
 
-	"SPECIAL"
+	"SPECIAL",
+
+	// Discord
+#ifdef HAVE_DISCORDRPC
+	"OP_DISCORD_RQ", // discord requests, for future notice
+	"OP_DISCORD_OPT",
+	"OP_DISCORDCS_OUTPUT",
+#endif
+
+	// FUN STAR STUFF //
+	"TSOURDT3RD_README",
+	
+	"OP_TSOURDT3RD",
+	
+	"OP_TSOURDT3RD_JUKEBOX",
+	"OP_TSOURDT3RD_SNAKE"
+	// END OF THAT //
 };
 
 struct int_const_s const INT_CONST[] = {

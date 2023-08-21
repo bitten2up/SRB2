@@ -140,6 +140,19 @@
 
 #include "doomstat.h"
 
+// STAR STUFF //
+#include "STAR/star_vars.h"
+#include "d_clisrv.h"
+// END OF THAT //
+
+// HOLEPUNCHING STUFFS //
+#include "i_time.h"
+// END THAT PLEASE //
+
+// STUN STUFFS //
+#include "stun.h"
+// END THAT ALSO //
+
 // win32
 #ifdef USE_WINSOCK
 	// winsock stuff (in winsock a socket is not a file)
@@ -178,6 +191,10 @@
 	static boolean nodeconnected[MAXNETNODES+1];
 	static mysockaddr_t banned[MAXBANS];
 	static UINT8 bannedmask[MAXBANS];
+	// HOLEPUNCHING STUFFS //
+	/* See ../doc/Holepunch-Protocol.txt */
+	static const INT32 hole_punch_magic = MSBF_LONG (0x52eb11);
+	// END THE MAGIC HERE //
 #endif
 
 static size_t numbans = 0;
@@ -521,6 +538,142 @@ void Command_Numnodes(void)
 #endif
 
 #ifndef NONET
+// HOLEPUNCHING STUFFS //
+/* See ../doc/Holepunch-Protocol.txt */
+
+/* not one of the reserved "local" addresses */
+static boolean is_external_address(UINT32 p)
+{
+	UINT8 a = (p & 255);
+	UINT8 b = ((p >> 8) & 255);
+
+	if (p == (UINT32)~0)/* 255.255.255.255 */
+		return 0;
+
+	switch (a)
+	{
+		case 0:
+		case 10:
+		case 127:
+			return false;
+		case 172:
+			return (b & ~15) != 16;/* 16 - 31 */
+		case 192:
+			return b != 168;
+		default:
+			return true;
+	}
+}
+
+static boolean hole_punch(ssize_t c)
+{
+	if (cv_rendezvousserver.string[0] &&
+			c == 10 && holepunchpacket->magic == hole_punch_magic &&
+			is_external_address(ntohl(holepunchpacket->addr)))
+	{
+		mysockaddr_t addr;
+		addr.ip4.sin_family      = AF_INET;
+		addr.ip4.sin_addr.s_addr = holepunchpacket->addr;
+		addr.ip4.sin_port        = holepunchpacket->port;
+		sendto(mysockets[0], NULL, 0, 0, &addr.any, sizeof addr.ip4);
+
+		CONS_Debug(DBG_NETPLAY,
+				"hole punching request from %s\n", SOCK_AddrToStr(&addr));
+
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+// STAR NOTE: this function is just a modified SOCK_NetMakeNodewPort lol
+static boolean SOCK_GetHolepunchAddr(struct sockaddr_in *sin, const char *address, const char *port)
+{
+	struct my_addrinfo *ai = NULL, *runp, hints;
+	int gaie;
+
+	if (!port || !port[0])
+		port = DEFAULTPORT;
+
+	memset (&hints, 0x00, sizeof (hints));
+	hints.ai_flags = 0;
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_protocol = IPPROTO_UDP;
+
+	gaie = I_getaddrinfo(address, port, &hints, &ai);
+
+	if (gaie != 0)
+	{
+		I_freeaddrinfo(ai);
+		return false;
+	}
+
+	runp = ai;
+
+	if (runp != NULL)
+		memcpy(sin, runp->ai_addr, runp->ai_addrlen);
+
+	I_freeaddrinfo(ai);
+
+	return (runp != NULL);
+}
+
+static void rendezvous(int size)
+{
+	char *addrs = strdup(cv_rendezvousserver.string);
+
+	char *host = strtok(addrs, ":");
+	char *port = strtok(NULL,  ":");
+
+	static mysockaddr_t rzv;
+	static tic_t refreshtic = (tic_t)-1;
+
+	tic_t tic = I_GetTime();
+
+	if (tic != refreshtic)
+	{
+		if (SOCK_GetHolepunchAddr(&rzv.ip4, host, (port ? port : "7777")))
+		{
+			refreshtic = tic;
+		}
+		else
+		{
+			CONS_Alert(CONS_ERROR, "Failed to contact rendezvous server (%s).\n",
+					cv_rendezvousserver.string);
+		}
+	}
+	
+	if (tic == refreshtic)
+	{
+		holepunchpacket->magic = hole_punch_magic;
+		sendto(mysockets[0], doomcom->data, size, 0, &rzv.any, sizeof rzv.ip4);
+	}
+
+	free(addrs);
+}
+
+static void SOCK_RequestHolePunch(INT32 node)
+{
+	mysockaddr_t * addr = &clientaddress[node];
+
+	holepunchpacket->addr = addr->ip4.sin_addr.s_addr;
+	holepunchpacket->port = addr->ip4.sin_port;
+
+	CONS_Debug(DBG_NETPLAY,
+			"requesting hole punch to node %s\n", SOCK_AddrToStr(addr));
+
+	rendezvous(10);
+}
+
+static void SOCK_RegisterHolePunch(void)
+{
+	rendezvous(4);
+}
+// I NEED A HOLEPUNCHER //
+
 // Returns true if a packet was received from a new node, false in all other cases
 static boolean SOCK_Get(void)
 {
@@ -537,6 +690,18 @@ static boolean SOCK_Get(void)
 			(void *)&fromaddress, &fromlen);
 		if (c != ERRSOCKET)
 		{
+#ifdef USE_STUN
+			if (STUN_got_response(doomcom->data, c))
+			{
+				break;
+			}
+#endif
+
+			if (hole_punch(c))
+			{
+				break;
+			}
+
 			// find remote node number
 			for (j = 1; j <= MAXNETNODES; j++) //include LAN
 			{
@@ -697,8 +862,24 @@ static void SOCK_Send(void)
 	{
 		int e = errno; // save error code so it can't be modified later
 		if (e != ECONNREFUSED && e != EWOULDBLOCK)
-			I_Error("SOCK_Send, error sending to node %d (%s) #%u: %s", doomcom->remotenode,
-				SOCK_GetNodeAddress(doomcom->remotenode), e, strerror(e));
+		{
+			// DO STAR STUFF //
+			/*I_Error("SOCK_Send, error sending to node %d (%s) #%u: %s", doomcom->remotenode,
+				SOCK_GetNodeAddress(doomcom->remotenode), e, strerror(e));*/
+
+			TSoURDt3rdInfo.reachedSockSendErrorLimit++;
+
+			if (TSoURDt3rdInfo.reachedSockSendErrorLimit >= cv_socksendlimit.value)
+			{
+				PT_WillResendGamestate();
+				TSoURDt3rdInfo.reachedSockSendErrorLimit = 0;
+			}
+			NetUpdate(); // Check for new console commands and update the client
+
+			CONS_Alert(CONS_NOTICE, "SOCK_Send() - Error Prevented :)\n");
+			return;
+			// DID STAR STUFF //
+		}
 	}
 }
 #endif
@@ -1218,6 +1399,11 @@ static boolean SOCK_OpenSocket(void)
 	I_NetCanSend = SOCK_CanSend;
 	I_NetCanGet = SOCK_CanGet;
 #endif
+
+	// HOLEPUNCHING STUFFS //
+	I_NetRequestHolePunch = SOCK_RequestHolePunch;
+	I_NetRegisterHolePunch = SOCK_RegisterHolePunch;
+	// FUNNY. REALLY FUNNY. //
 
 	// build the socket but close it first
 	SOCK_CloseSocket();

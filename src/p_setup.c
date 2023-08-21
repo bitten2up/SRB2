@@ -87,6 +87,11 @@
 
 #include "taglist.h"
 
+// STAR STUFF, FOR FUNNIES //
+#include "STAR/star_vars.h"
+#include "deh_soc.h"
+// END THE STAR STUFF, FOR FUNNIES //
+
 //
 // Map MD5, calculated on level load.
 // Sent to clients in PT_SERVERINFO.
@@ -7603,6 +7608,13 @@ boolean P_LoadLevel(boolean fromnetsave, boolean reloadinggamestate)
 		wipegamestate = FORCEWIPEOFF;
 	wipestyleflags = 0;
 
+	// HOLEPUNCHING STUFFS: PLEASE HELP ME EDITION //
+	if (netgame && serverrunning)
+	{
+		RenewHolePunch();
+	}
+	// END THAT PLEASE //
+
 	// Special stage & record attack retry fade to white
 	// This is handled BEFORE sounds are stopped.
 	if (G_GetModeAttackRetryFlag())
@@ -7626,9 +7638,15 @@ boolean P_LoadLevel(boolean fromnetsave, boolean reloadinggamestate)
 
 	// Fade out music here. Deduct 2 tics so the fade volume actually reaches 0.
 	// But don't halt the music! S_Start will take care of that. This dodges a MIDI crash bug.
+	// STAR NOTE: i was here lol
 	if (!(reloadinggamestate || titlemapinaction) && (RESETMUSIC ||
+#ifdef APRIL_FOOLS
+		strnicmp(S_MusicName(), mapmusname, 7)
+#else
 		strnicmp(S_MusicName(),
-			(mapmusflags & MUSIC_RELOADRESET) ? mapheaderinfo[gamemap-1]->musname : mapmusname, 7)))
+			(mapmusflags & MUSIC_RELOADRESET) ? mapheaderinfo[gamemap-1]->musname : mapmusname, 7)
+#endif
+	))
 	{
 		S_FadeMusic(0, FixedMul(
 			FixedDiv((F_GetWipeLength(wipedefs[wipe_level_toblack])-2)*NEWTICRATERATIO, NEWTICRATE), MUSICRATE));
@@ -7658,7 +7676,12 @@ boolean P_LoadLevel(boolean fromnetsave, boolean reloadinggamestate)
 				(mapheaderinfo[gamemap-1]->levelflags & LF_NOZONE) ? "" : " Zone",
 				(mapheaderinfo[gamemap-1]->actnum > 0) ? va(" %d",mapheaderinfo[gamemap-1]->actnum) : "");
 			V_DrawSmallString(1, 195, V_ALLOWLOWERCASE|V_TRANSLUCENT|V_SNAPTOLEFT|V_SNAPTOBOTTOM, tx);
-			I_UpdateNoVsync();
+			// STAR STUFF //
+			if (cv_loadingscreen.value && rendermode != render_opengl)
+				STAR_LoadingScreen(false);
+			else
+				I_UpdateNoVsync();
+			// HELP ME PLEASE //
 		}
 
 		// As oddly named as this is, this handles music only.
@@ -7802,6 +7825,18 @@ boolean P_LoadLevel(boolean fromnetsave, boolean reloadinggamestate)
 	P_RunCachedActions();
 
 	P_MapEnd(); // tmthing is no longer needed from this point onwards
+
+	// STAR STUFF //
+	if (savemoddata)
+		TSoURDt3rd_LoadedGamedataAddon = true;
+	if (!netgame)
+		STAR_SetSavefileProperties();
+#ifdef HAVE_SDL
+	STAR_SetWindowTitle();
+#endif
+
+	STAR_loadingscreentouse = 0;
+	// END THAT //
 
 	// Took me 3 hours to figure out why my progression kept on getting overwritten with the titlemap...
 	if (!titlemapinaction)

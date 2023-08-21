@@ -51,6 +51,35 @@
 
 #include "lua_hud.h"
 
+// DISCORD STUFF //
+#ifdef HAVE_DISCORDRPC
+#include "discord.h"
+#endif
+
+#ifdef HAVE_DISCORDGAMESDK
+#include "discord_gamesdk.h"
+#endif
+// END THAT //
+
+// OTHER FUN STAR STUFF YAYAYSUHDUISHUIBHOUIHBDU()*FH*D(UIYVLBGUIYDG(UDOPBIYGD*OUFBHO(P))) //
+#include "STAR/star_vars.h"
+#include "deh_soc.h"
+
+// Main Build
+boolean tsourdt3rd = true;
+
+// Sound Effects
+INT32 STAR_JoinSFX = sfx_kc48;
+INT32 STAR_LeaveSFX = sfx_kc52;
+INT32 STAR_SynchFailureSFX = sfx_kc46;
+
+INT32 DISCORD_RequestSFX = sfx_kc5d;
+
+// Easter
+INT32 TOTALEGGS;
+INT32 foundeggs;
+// END OF THAT STAR STUFF //
+
 gameaction_t gameaction;
 gamestate_t gamestate = GS_NULL;
 UINT8 ultimatemode = false;
@@ -748,7 +777,8 @@ void G_SetNightsRecords(void)
 // for consistency among messages: this modifies the game and removes savemoddata.
 void G_SetGameModified(boolean silent)
 {
-	if (modifiedgame && !savemoddata)
+	if ((modifiedgame && !savemoddata)
+		|| autoloading)	// STAR NOTE: THIS IS ONLY HERE SO THAT IT DOESN'T SCREAM MISINFOMRATION IN THE CONSOLE
 		return;
 
 	modifiedgame = true;
@@ -756,6 +786,13 @@ void G_SetGameModified(boolean silent)
 
 	if (!silent)
 		CONS_Alert(CONS_NOTICE, M_GetText("Game must be restarted to record statistics.\n"));
+
+	// STAR STUFF YAY //
+	M_UpdateJukebox();
+	M_UpdateEasterStuff();
+	if (TSoURDt3rd_LoadedExtras)
+		TSoURDt3rd_NoMoreExtras = true;
+	// END OF THAT //
 
 	// If in record attack recording, cancel it.
 	if (modeattacking)
@@ -2738,7 +2775,15 @@ void G_PlayerReborn(INT32 player, boolean betweenmaps)
 	{
 		if (mapmusflags & MUSIC_RELOADRESET)
 		{
+#ifdef APRIL_FOOLS
+			if (cv_ultimatemode.value)
+				strncpy(mapmusname, "_hehe", 7);
+			else
+				strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
+#else
 			strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
+#endif
+
 			mapmusname[6] = 0;
 			mapmusflags = (mapheaderinfo[gamemap-1]->mustrack & MUSIC_TRACKMASK);
 			mapmusposition = mapheaderinfo[gamemap-1]->muspos;
@@ -3257,6 +3302,12 @@ void G_DoReborn(INT32 playernum)
 		if (oldmo)
 			G_ChangePlayerReferences(oldmo, players[playernum].mo);
 	}
+
+#ifdef HAVE_DISCORDRPC
+	// DISCORD STUFF //
+	DRPC_UpdatePresence();
+	// END THAT //
+#endif
 }
 
 void G_AddPlayer(INT32 playernum)
@@ -3304,6 +3355,12 @@ void G_AddPlayer(INT32 playernum)
 
 	if ((countplayers && !notexiting) || G_IsSpecialStage(gamemap))
 		P_DoPlayerExit(p);
+
+#ifdef HAVE_DISCORDRPC
+	// DISCORD STUFF //
+	DRPC_UpdatePresence();
+	// END THAT //
+#endif
 }
 
 boolean G_EnoughPlayersFinished(void)
@@ -3897,6 +3954,20 @@ static boolean CanSaveLevel(INT32 mapnum)
 
 static void G_HandleSaveLevel(void)
 {
+	// STAR STUFF //
+	if (cv_storesavesinfolders.value)
+	{
+		I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER, srb2home), 0755);
+		if (TSoURDt3rd_useAsFileName)
+		{
+			I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "TSoURDt3rd", srb2home), 0755);
+			I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "TSoURDt3rd" PATHSEP "%s", srb2home, timeattackfolder), 0755);
+		}
+		else
+			I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "%s", srb2home, timeattackfolder), 0755);
+	}
+	// END THAT, AND NOW DO EVERYTHING ELSE //
+
 	// do this before running the intermission or custom cutscene, mostly for the sake of marathon mode but it also massively reduces redundant file save events in f_finale.c
 	if (nextmap >= 1100-1)
 	{
@@ -4194,6 +4265,20 @@ static void G_DoContinued(void)
 	tokenlist = 0;
 	token = 0;
 
+	// STAR STUFF //
+	if (cv_storesavesinfolders.value)
+	{
+		I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER, srb2home), 0755);
+		if (TSoURDt3rd_useAsFileName)
+		{
+			I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "TSoURDt3rd", srb2home), 0755);
+			I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "TSoURDt3rd" PATHSEP "%s", srb2home, timeattackfolder), 0755);
+		}
+		else
+			I_mkdir(va("%s" PATHSEP SAVEGAMEFOLDER PATHSEP "%s", srb2home, timeattackfolder), 0755);
+	}
+	// END THAT, NOW DO THE NEXT THING //
+
 	if (!(netgame || multiplayer || demoplayback || demorecording || metalrecording || modeattacking) && (!modifiedgame || savemoddata) && cursaveslot > 0)
 		G_SaveGameOver((UINT32)cursaveslot, true);
 
@@ -4203,6 +4288,17 @@ static void G_DoContinued(void)
 	D_MapChange(gamemap, gametype, ultimatemode, false, 0, false, false);
 
 	gameaction = ga_nothing;
+
+#ifdef HAVE_DISCORDRPC
+	// DISCORD STUFF //
+	DRPC_UpdatePresence();
+	// END THAT //
+#endif
+#ifdef HAVE_SDL
+	// STAR STUFF //
+	STAR_SetWindowTitle();
+	// END THAT //
+#endif
 }
 
 //
@@ -4412,6 +4508,10 @@ void G_LoadGameData(void)
 	// Silent update unlockables in case they're out of sync with conditions
 	M_SilentUpdateUnlockablesAndEmblems();
 
+	// STAR STUFF: STEAL SAVEFILE DATA //
+	STAR_ReadExtraData();
+	// I MADE THIS ALL ON MY OWN //
+
 	return;
 
 	// Landing point for corrupt gamedata
@@ -4447,6 +4547,10 @@ void G_SaveGameData(void)
 		CONS_Alert(CONS_ERROR, M_GetText("No more free memory for saving game data\n"));
 		return;
 	}
+
+	// STAR STUFF //
+	STAR_WriteExtraData();
+	// VIVA LA AUTOLOADING //
 
 	if (modifiedgame && !savemoddata)
 	{
@@ -5256,6 +5360,17 @@ INT32 G_FindMapByNameOrCode(const char *mapname, char **realmapnamep)
 void G_SetGamestate(gamestate_t newstate)
 {
 	gamestate = newstate;
+
+#ifdef HAVE_DISCORDRPC
+	// DISCORD STUFFS //
+	DRPC_UpdatePresence();
+	// END THAT //
+#endif
+#ifdef HAVE_SDL
+	// STAR STUFF //
+	STAR_SetWindowTitle();
+	// END THAT //
+#endif
 }
 
 /* These functions handle the exitgame flag. Before, when the user

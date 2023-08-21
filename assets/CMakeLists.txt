@@ -22,7 +22,7 @@ list(TRANSFORM SRB2_ASSETS_DOCS PREPEND "/")
 list(TRANSFORM SRB2_ASSETS_DOCS PREPEND "${SRB2_ASSET_DIRECTORY_ABSOLUTE}")
 
 ####################
-# POST-V2.2 NOTE: Do not forget to add patch.pk3 to the end of this list!
+# POST-V2.2 NOTE: Don't forget to uncomment and add patch.pk3 to the end of this list!
 ####################
 
 set(SRB2_ASSETS_GAME
@@ -32,6 +32,7 @@ set(SRB2_ASSETS_GAME
 	"patch.pk3"
 	"music.dta"
 	"models.dat"
+	"tsourdt3rd.pk3" # STAR STUFF #
 )
 list(TRANSFORM SRB2_ASSETS_GAME PREPEND "/")
 list(TRANSFORM SRB2_ASSETS_GAME PREPEND "${SRB2_ASSET_DIRECTORY_ABSOLUTE}")
