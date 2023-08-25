@@ -511,7 +511,7 @@ static menuitem_t MainMenu[] =
 	{IT_CALL   |IT_STRING, NULL, "Mods",      M_Addons,               100},
 	{IT_STRING|IT_CALL,    NULL, "Settings",     M_Options,              108},
 	{IT_STRING|IT_CALL,    NULL, "EXIT TO DOS",  M_QuitSRB2,             116},
-#else
+#else // #ifdef APRIL_FOOLS
 	{IT_STRING|IT_CALL,    NULL, "1  Player",   M_SinglePlayerMenu,      76},
 #ifndef NONET
 	{IT_STRING|IT_SUBMENU, NULL, "Multiplayer", &MP_MainDef,             84},
@@ -577,6 +577,13 @@ static menuitem_t MPauseMenu[] =
 	{IT_STRING | IT_CALL,    NULL, "Keep going",                  M_SelectableClearMenus,40},
 	{IT_STRING | IT_CALL,    NULL, "Pet 1 Setup",            M_SetupMultiPlayer,    48}, // splitscreen
 	{IT_STRING | IT_CALL,    NULL, "Pet 2 Setup",            M_SetupMultiPlayer2,   56}, // splitscreen
+	{IT_STRING | IT_CALL,    NULL, "Spectate",                  M_ConfirmSpectate,     48},
+	{IT_STRING | IT_CALL,    NULL, "Enter Playground",                M_ConfirmEnterGame,    48},
+	{IT_STRING | IT_SUBMENU, NULL, "Join Group...",            &MISC_ChangeTeamDef,   48},
+	{IT_STRING | IT_CALL,    NULL, "Customise Pet",              M_SetupMultiPlayer,    56}, // alone
+	{IT_STRING | IT_CALL,    NULL, "Options",                   M_Options,             64},
+	{IT_STRING | IT_CALL,    NULL, "Leave Group",           	M_EndGame,             80},
+	{IT_STRING | IT_CALL,    NULL, "EXIT TO DOS",				M_QuitSRB2,            88},
 #else
 	{IT_STRING | IT_CALL,    NULL, "Add-ons...",                M_Addons,               8},
 	{IT_STRING | IT_SUBMENU, NULL, "Scramble Teams...",         &MISC_ScrambleTeamDef, 16},
@@ -585,24 +592,11 @@ static menuitem_t MPauseMenu[] =
 	{IT_STRING | IT_CALL,    NULL, "Continue",                  M_SelectableClearMenus,40},
 	{IT_STRING | IT_CALL,    NULL, "Player 1 Setup",            M_SetupMultiPlayer,    48}, // splitscreen
 	{IT_STRING | IT_CALL,    NULL, "Player 2 Setup",            M_SetupMultiPlayer2,   56}, // splitscreen
-
-#endif
 	{IT_STRING | IT_CALL,    NULL, "Spectate",                  M_ConfirmSpectate,     48},
-#ifdef APRIL_FOOLS
-	{IT_STRING | IT_CALL,    NULL, "Enter Playground",                M_ConfirmEnterGame,    48},
-	{IT_STRING | IT_SUBMENU, NULL, "Join Group...",            &MISC_ChangeTeamDef,   48},
-	{IT_STRING | IT_CALL,    NULL, "Customise Pet",              M_SetupMultiPlayer,    56}, // alone
-#else
 	{IT_STRING | IT_CALL,    NULL, "Enter Game",                M_ConfirmEnterGame,    48},
 	{IT_STRING | IT_SUBMENU, NULL, "Switch Team...",            &MISC_ChangeTeamDef,   48},
 	{IT_STRING | IT_CALL,    NULL, "Player Setup",              M_SetupMultiPlayer,    56}, // alone
-#endif
 	{IT_STRING | IT_CALL,    NULL, "Options",                   M_Options,             64},
-
-#ifdef APRIL_FOOLS
-	{IT_STRING | IT_CALL,    NULL, "Leave Group",           	M_EndGame,             80},
-	{IT_STRING | IT_CALL,    NULL, "EXIT TO DOS",				M_QuitSRB2,            88},
-#else
 	{IT_STRING | IT_CALL,    NULL, "Return to Title",           M_EndGame,             80},
 	{IT_STRING | IT_CALL,    NULL, "Quit Game",                 M_QuitSRB2,            88},
 #endif
@@ -894,7 +888,7 @@ static menuitem_t SP_TimeAttackMenu[] =
 	{IT_DISABLED,              NULL, "Past lives...",       &SP_ReplayDef,      110},
 	{IT_DISABLED,              NULL, "Zombies...",       &SP_GhostDef,       120},
 	{IT_WHITESTRING|IT_CALL|IT_CALL_NOTMODIFIED,   NULL, "Start speedrun",         M_ChooseTimeAttack,   130},
-#endif
+#else
 	{IT_STRING|IT_KEYHANDLER,  NULL, "Level Select...", M_HandleTimeAttackLevelSelect,   62},
 	{IT_STRING|IT_CVAR,        NULL, "Character",       &cv_chooseskin,             72},
 
@@ -902,6 +896,7 @@ static menuitem_t SP_TimeAttackMenu[] =
 	{IT_DISABLED,              NULL, "Replay...",       &SP_ReplayDef,      110},
 	{IT_DISABLED,              NULL, "Ghosts...",       &SP_GhostDef,       120},
 	{IT_WHITESTRING|IT_CALL|IT_CALL_NOTMODIFIED,   NULL, "Start",         M_ChooseTimeAttack,   130},
+#endif
 };
 
 enum
