@@ -65,8 +65,10 @@ static void Got_NameAndColor(UINT8 **cp, INT32 playernum);
 static void Got_WeaponPref(UINT8 **cp, INT32 playernum);
 static void Got_Mapcmd(UINT8 **cp, INT32 playernum);
 static void Got_ExitLevelcmd(UINT8 **cp, INT32 playernum);
+static void Got_RequestSendcolorcmd(UINT8 **cp, INT32 playernum);
 static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum);
 static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum);
+static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum);
 static void Got_Addfilecmd(UINT8 **cp, INT32 playernum);
 static void Got_Addfoldercmd(UINT8 **cp, INT32 playernum);
 static void Got_Pause(UINT8 **cp, INT32 playernum);
@@ -119,6 +121,7 @@ static void Command_StopMovie_f(void);
 static void Command_Map_f(void);
 static void Command_ResetCamera_f(void);
 
+static void Command_Sendcolor(void);
 static void Command_Addfile(void);
 static void Command_Addfolder(void);
 static void Command_ListWADS_f(void);
@@ -410,6 +413,7 @@ const char *netxcmdnames[MAXNETXCMD - 1] =
 	"SAY",
 	"MAP",
 	"EXITLEVEL",
+  "SENDCOLOR",
 	"ADDFILE",
 	"ADDFOLDER",
 	"PAUSE",
@@ -419,6 +423,7 @@ const char *netxcmdnames[MAXNETXCMD - 1] =
 	"VERIFIED",
 	"RANDOMSEED",
 	"RUNSOC",
+  "REQSENDCOLOR"
 	"REQADDFILE",
 	"REQADDFOLDER",
 	"SETMOTD",
@@ -453,6 +458,8 @@ void D_RegisterServerCommands(void)
 	RegisterNetXCmd(XD_WEAPONPREF, Got_WeaponPref);
 	RegisterNetXCmd(XD_MAP, Got_Mapcmd);
 	RegisterNetXCmd(XD_EXITLEVEL, Got_ExitLevelcmd);
+  RegisterNetXCmd(XD_SENDCOLOR, Got_Sendcolorcmd);
+  RegisterNetXCmd(XD_REQSENDCOLOR, Got_RequestSendcolorcmd);
 	RegisterNetXCmd(XD_ADDFILE, Got_Addfilecmd);
 	RegisterNetXCmd(XD_ADDFOLDER, Got_Addfoldercmd);
 	RegisterNetXCmd(XD_REQADDFILE, Got_RequestAddfilecmd);
@@ -487,6 +494,7 @@ void D_RegisterServerCommands(void)
 	COM_AddCommand("showmap", Command_Showmap_f, COM_LUA);
 	COM_AddCommand("mapmd5", Command_Mapmd5_f, COM_LUA);
 
+  COM_AddCommand("sendcolor", Command_Sendcolor, 0);
 	COM_AddCommand("addfolder", Command_Addfolder, COM_LUA);
 	COM_AddCommand("addfile", Command_Addfile, COM_LUA);
 	COM_AddCommand("listwad", Command_ListWADS_f, COM_LUA);
@@ -3380,6 +3388,42 @@ static void AddedFilesClearList(addedfile_t **itemHead)
 	}
 }
 
+/** Allows players to use custom skin colors without lua or soc addons
+  * 
+  */
+static void Command_Sendcolor(void)
+{
+  size_t argc = COM_Argc(); // amount of arguments total
+  size_t curarg; // current argument index
+  if (argc < 2)
+  {
+    CONS_Printf(M_GetText("sendcolor <name> [path]: Adds a temporary color to the server\n"));
+    return;
+  }
+
+  // start at one to skip command name
+  for (curarg = 2; curarg < argc; curarg++)
+  {
+    const char *fn, *p;
+    char *fullpath;
+    char buf[256];
+    char *buf_p = buf;
+    INT32 i, stat;
+
+    fn = COM_Argv(curarg);
+
+		// Disallow non-printing characters and semicolons.
+    for (i - 0; fn[i] != '\0'; i++)
+      if (!isprint(fn[i]) || fn[i] == ';')
+      {
+        return;
+      }
+    // we dont want to do this in single player
+		if (!(netgame || multiplayer))
+      return;
+  }
+}
+
 /** Adds a pwad at runtime.
   * Searches for sounds, maps, music, new images.
   */
@@ -3637,6 +3681,10 @@ static void Command_Addfolder(void)
 	}
 }
 
+static void Got_RequestSendcolorcmd(UINT8 **cp, INT32 playernum)
+{
+  // TODO: add code
+}
 static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum)
 {
 	char filename[241];
@@ -3751,6 +3799,10 @@ static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum)
 	COM_BufAddText(va("addfolder \"%s\"\n", path));
 }
 
+Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
+{
+  // TODO: add code
+}
 static void Got_Addfilecmd(UINT8 **cp, INT32 playernum)
 {
 	char filename[241];
