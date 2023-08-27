@@ -3409,21 +3409,21 @@ static void Command_Sendcolor(void)
   }
   size_t i;
 
-  char *fn;
-	fn = Z_Malloc(sizeof(64), PU_STATIC, NULL);
-	strlcpy(fn, COM_Argv(1), sizeof 64);
+  char *ramp;
+	ramp = Z_Malloc(COLORRAMPSIZE * 3 + COLORRAMPSIZE, PU_STATIC, NULL);
+	strlcpy(ramp, COM_Argv(1), COLORRAMPSIZE * 3 + COLORRAMPSIZE);
 
   // Disallow non-printing characters and semicolons.
-	for (i = 0; fn[i] != '\0'; i++)
-		if (fn[i] == ';' || (!isdigit(fn[i]) && fn[i] != ','))
+	for (i = 0; ramp[i] != '\0'; i++)
+		if (ramp[i] == ';' || (!isdigit(ramp[i]) && ramp[i] != ','))
 		{
       CONS_Printf("invalid ramp\n");
-			Z_Free(fn);
+			Z_Free(ramp);
 			return;
 		}
 
-	SendNetXCmd(XD_SENDCOLOR, fn, 64);
-  Z_Free(fn);
+	SendNetXCmd(XD_SENDCOLOR, ramp, COLORRAMPSIZE * 3 + COLORRAMPSIZE);
+  Z_Free(ramp);
 }
 
 /** Adds a pwad at runtime.
