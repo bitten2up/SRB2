@@ -3408,17 +3408,12 @@ static void Command_Sendcolor(void)
   curarg = 1;
     const char *fn, *p;
     char *fullpath;
-    char buf[64];
-    char *buf_p = buf;
-    INT32 i, stat;
-
     fn = COM_Argv(curarg);
 		
-		WRITEMEM(buf_p,fn,64);
 		if (!server) // Request to sendcolor
-			SendNetXCmd(XD_REQSENDCOLOR, buf_p, 64);
+			SendNetXCmd(XD_REQSENDCOLOR, fn, 64);
 		else
-			SendNetXCmd(XD_SENDCOLOR, buf_p, 64);
+			SendNetXCmd(XD_SENDCOLOR, fn, 64);
 }
 
 /** Adds a pwad at runtime.
@@ -3680,16 +3675,14 @@ static void Command_Addfolder(void)
 
 static void Got_RequestSendcolorcmd(UINT8 **cp, INT32 playernum)
 {
-  char ramp[64];
   INT32 i,j;
-  READMEM(*cp, ramp, 64);
 
 	// Only the server processes this message.
   if (client)
     return;
   CONS_Printf(">oJ^ caught\n");
-  CONS_Printf("sendcolor val rn: %s; %i\n", ramp, COLORRAMPSIZE);
-  COM_BufAddText(va("sendcolor %s\n", ramp));
+  CONS_Printf("sendcolor val rn: %s; %i\n", *cp, COLORRAMPSIZE);
+  COM_BufAddText(va("sendcolor %s\n", *cp));
 }
 
 static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum)
@@ -3819,7 +3812,7 @@ Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
   /*
   freeslot("SKINCOLOR_NAME")
   */
-  char* colorname = "TEST"; // temporary just constant
+  char* colorname = "bitten_test"; // temporary just constant
   char* tmp;
   skincolornum_t num;
   size_t i;
