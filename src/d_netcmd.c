@@ -603,6 +603,7 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_noticedownload);
 	CV_RegisterVar(&cv_downloadspeed);
 #ifndef NONET
+  CV_RegisterVar(&cv_allowsendcolor);
 	CV_RegisterVar(&cv_allownewplayer);
 	CV_RegisterVar(&cv_joinnextround);
 	CV_RegisterVar(&cv_showjoinaddress);
@@ -3402,26 +3403,20 @@ static void Command_Sendcolor(void)
   }
 
   // start at one to skip command name
-  for (curarg = 2; curarg < argc; curarg++)
-  {
+  curarg = 1;
     const char *fn, *p;
     char *fullpath;
-    char buf[256];
+    char buf[COLORRAMPSIZE];
     char *buf_p = buf;
     INT32 i, stat;
 
     fn = COM_Argv(curarg);
-
-		// Disallow non-printing characters and semicolons.
-    for (i - 0; fn[i] != '\0'; i++)
-      if (!isprint(fn[i]) || fn[i] == ';')
-      {
-        return;
-      }
-    // we dont want to do this in single player
-		if (!(netgame || multiplayer))
-      return;
-  }
+		
+		WRITEMEM(buf_p,fn,COLORRAMPSIZE);
+		if (!server) // Request to sendcolor
+			SendNetXCmd(XD_REQSENDCOLOR, buf_p, COLORRAMPSIZE);
+		else
+			SendNetXCmd(XD_SENDCOLOR, buf_p, COLORRAMPSIZE);
 }
 
 /** Adds a pwad at runtime.
@@ -3683,8 +3678,18 @@ static void Command_Addfolder(void)
 
 static void Got_RequestSendcolorcmd(UINT8 **cp, INT32 playernum)
 {
-  // TODO: add code
+  char ramp[COLORRAMPSIZE];
+  INT32 i,j;
+  READMEM(*cp, ramp, COLORRAMPSIZE);
+
+	// Only the server processes this message.
+  if (client)
+    return;
+  CONS_Printf(">oJ^ caught\n");
+  CONS_Printf("sendcolor val rn: %s; %i\n", ramp, COLORRAMPSIZE);
+  COM_BufAddText(va("sendcolor %s\n", ramp));
 }
+
 static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum)
 {
 	char filename[241];
@@ -3801,7 +3806,18 @@ static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum)
 
 Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 {
-  // TODO: add code
+  char ramp[COLORRAMPSIZE];
+  skincolor_t* currentcolor = &skincolors[SKINCOLOR_FIRSTFREESLOT];
+  READMEM(*cp, ramp, COLORRAMPSIZE);
+	if (playernum != serverplayer)
+	{
+		CONS_Alert(CONS_WARNING, M_GetText("Illegal sendcolor command received from %s\n"), player_names[playernum]);
+		if (server)
+			SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
+		return;
+	}
+  *currentcolor = (skincolor_t){"Bitten_test", ramp, SKINCOLOR_RUBY, 9,  V_GREENMAP, true};
+  COM_BufAddText("say color added\n");
 }
 static void Got_Addfilecmd(UINT8 **cp, INT32 playernum)
 {
