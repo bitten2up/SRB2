@@ -211,7 +211,6 @@ void ClearAdminPlayers(void);
 void RemoveAdminPlayer(INT32 playernum);
 void ItemFinder_OnChange(void);
 void D_SetPassword(const char *pw);
-void D_SendColor(const char *color);
 
 // used for the player setup menu
 UINT8 CanChangeSkin(INT32 playernum);

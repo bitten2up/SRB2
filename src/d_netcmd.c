@@ -461,9 +461,9 @@ void D_RegisterServerCommands(void)
 	RegisterNetXCmd(XD_MAP, Got_Mapcmd);
 	RegisterNetXCmd(XD_EXITLEVEL, Got_ExitLevelcmd);
   RegisterNetXCmd(XD_SENDCOLOR, Got_Sendcolorcmd);
-  RegisterNetXCmd(XD_REQSENDCOLOR, Got_RequestSendcolorcmd);
 	RegisterNetXCmd(XD_ADDFILE, Got_Addfilecmd);
 	RegisterNetXCmd(XD_ADDFOLDER, Got_Addfoldercmd);
+  RegisterNetXCmd(XD_REQSENDCOLOR, Got_RequestSendcolorcmd);
 	RegisterNetXCmd(XD_REQADDFILE, Got_RequestAddfilecmd);
 	RegisterNetXCmd(XD_REQADDFOLDER, Got_RequestAddfoldercmd);
 	RegisterNetXCmd(XD_PAUSE, Got_Pause);
@@ -3809,9 +3809,7 @@ Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 		return;
 	}
 	// init freeslot
-  /*
-  freeslot("SKINCOLOR_NAME")
-  */
+  // stollen from the readfreeslots in deh_soc.c
   char* colorname = "bitten_test"; // temporary just constant
   char* tmp;
   skincolornum_t num;
