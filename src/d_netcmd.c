@@ -3405,15 +3405,13 @@ static void Command_Sendcolor(void)
   }
 
   // start at one to skip command name
-  curarg = 1;
-    const char *fn, *p;
-    char *fullpath;
+	for (curarg = 1; curarg < argc; curarg++)
+  {
+    const char *fn;
     fn = COM_Argv(curarg);
 		
-		if (!server) // Request to sendcolor
-			SendNetXCmd(XD_REQSENDCOLOR, fn, 64);
-		else
-			SendNetXCmd(XD_SENDCOLOR, fn, 64);
+		SendNetXCmd(XD_SENDCOLOR, fn, 64);
+  }
 }
 
 /** Adds a pwad at runtime.
@@ -3675,8 +3673,6 @@ static void Command_Addfolder(void)
 
 static void Got_RequestSendcolorcmd(UINT8 **cp, INT32 playernum)
 {
-  INT32 i,j;
-
 	// Only the server processes this message.
   if (client)
     return;
@@ -3799,18 +3795,11 @@ static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum)
 	COM_BufAddText(va("addfolder \"%s\"\n", path));
 }
 
-Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
+static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 {
-	if (playernum != serverplayer)
-	{
-		CONS_Alert(CONS_WARNING, M_GetText("Illegal sendcolor command received from %s\n"), player_names[playernum]);
-		if (server)
-			SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
-		return;
-	}
 	// init freeslot
   // stollen from the readfreeslots in deh_soc.c
-  char* colorname = "bitten_test"; // temporary just constant
+  const char* colorname = "bitten_test"; // temporary just constant
   char* tmp;
   skincolornum_t num;
   size_t i;
