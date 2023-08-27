@@ -404,6 +404,9 @@ boolean splitscreen = false;
 boolean circuitmap = false;
 INT32 adminplayers[MAXPLAYERS];
 
+// fuck it, i need to have a way to keep track of every player's color so here is the array of every player
+UINT16 sentcolors[MAXPLAYERS] = {0};
+
 /// \warning Keep this up-to-date if you add/remove/rename net text commands
 const char *netxcmdnames[MAXNETXCMD - 1] =
 {
@@ -3393,13 +3396,13 @@ static void AddedFilesClearList(addedfile_t **itemHead)
   */
 static void Command_Sendcolor(void)
 {
-  if (!cv_allowsendcolor.value)
+  if (cv_allowsendcolor.value)
     return;
   size_t argc = COM_Argc(); // amount of arguments total
   size_t curarg; // current argument index
   if (argc < 2)
   {
-    CONS_Printf(M_GetText("sendcolor <name> [path]: Adds a temporary color to the server\n"));
+    CONS_Printf(M_GetText("sendcolor <ramp>: Adds a temporary color to the server\n"));
     return;
   }
 
@@ -3408,8 +3411,9 @@ static void Command_Sendcolor(void)
   {
     const char *fn;
     fn = COM_Argv(curarg);
-		
-		SendNetXCmd(XD_SENDCOLOR, fn, 64);
+    size_t i;
+		for (i = 0; fn[i] != '\0'; ++i);
+		SendNetXCmd(XD_SENDCOLOR, fn, i);
   }
 }
 
@@ -3786,69 +3790,45 @@ static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum)
 
 static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 {
-  if (!cv_allowsendcolor.value) // dont do anything if sendcolor is not allowed
+  if (cv_allowsendcolor.value) // dont do anything if sendcolor is not allowed
+  {
+    CONS_Alert(CONS_WARNING, "sendcolor is disabled by the server host\n");
     return;
+  }
 	// init freeslot
   // stollen from the readfreeslots in deh_soc.c
-  const char* colorname = "bitten_test"; // temporary just constant
+  const char* colorname = va("SENDCOLOR_PLAYER%i", playernum); // temporary just constant
   char* tmp;
   skincolornum_t num;
   size_t i;
-	for (num = 1; num < NUMCOLORFREESLOTS; num++)
-		if (!FREE_SKINCOLORS[num]) {
-			CONS_Printf("Skincolor SKINCOLOR_%s allocated.\n", colorname);
-			FREE_SKINCOLORS[num] = Z_Malloc(strlen(colorname)+1, PU_STATIC, NULL);
-			strcpy(FREE_SKINCOLORS[num],colorname);
-			M_AddMenuColor(numskincolors++);
-			break;
-		}
-	if (num == NUMCOLORFREESLOTS)
+  if (sentcolors[playernum] == 0) // dont create more than one color per player
+  {
+	  for (num = 1; num < NUMCOLORFREESLOTS; num++)
+		  if (!FREE_SKINCOLORS[num]) {
+			  CONS_Printf("Skincolor SKINCOLOR_%s allocated.\n", colorname);
+  			FREE_SKINCOLORS[num] = Z_Malloc(strlen(colorname)+1, PU_STATIC, NULL);
+	  		strcpy(FREE_SKINCOLORS[num],colorname);
+        sentcolors[playernum] = num; // keep track of it for later
+			  M_AddMenuColor(numskincolors++);
+			  break;
+		  }
+  }
+  else
+  {
+    num = sentcolors[playernum]; // edit exsisting color
+    CONS_Printf("player %i already has a color, editing exsisting color\n", playernum);
+  }
+	if (num == NUMCOLORFREESLOTS){
 		CONS_Alert(CONS_WARNING, "Ran out of free skincolor slots!\n");
+    return;
+  }
 
   // the rest is stollen from the readskincolor function in deh_soc.c 
 
   // ok now get name working
   size_t namesize = sizeof(skincolors[num].name);
-  char *truncword = malloc(namesize); // Follow C standard - SSNTails
 
-	UINT16 dupecheck;
-
-	deh_strlcpy(truncword, colorname, namesize, va("Skincolor %d: name", num)); // truncate here to check for dupes
-	dupecheck = R_GetColorByName(truncword);
-	if (truncword[0] != '\0' && (!stricmp(truncword, skincolors[SKINCOLOR_NONE].name) || (dupecheck && dupecheck != num)))
-	{
-		size_t lastchar = strlen(truncword);
-		char *oldword = malloc(lastchar + 1); // Follow C standard - SSNTails
-		char dupenum = '1';
-
-		strlcpy(oldword, truncword, lastchar+1);
-		lastchar--;
-		if (lastchar == namesize-2) // exactly max length, replace last character with 0
-			truncword[lastchar] = '0';
-    else // append 0
-		{
-			strcat(truncword, "0");
-			lastchar++;
-		}
-
-		while (R_GetColorByName(truncword))
-		{
-			truncword[lastchar] = dupenum;
-			if (dupenum == '9')
-				dupenum = 'A';
-			else if (dupenum == 'Z') // give up :?
-				break;
-			else
-				dupenum++;
-		}
-
-		deh_warning("Skincolor %d: name %s is a duplicate of another skincolor's name - renamed to %s", num, oldword, truncword);
-		free(oldword);
-	}
-
-	strlcpy(skincolors[num].name, truncword, namesize); // already truncated
-
-	free(truncword);
+	strlcpy(skincolors[num].name, colorname, namesize); // already truncated
 
   // onto ramp
   tmp = strtok(*cp,","); // split it up into chunks
