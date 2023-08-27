@@ -67,7 +67,6 @@ static void Got_NameAndColor(UINT8 **cp, INT32 playernum);
 static void Got_WeaponPref(UINT8 **cp, INT32 playernum);
 static void Got_Mapcmd(UINT8 **cp, INT32 playernum);
 static void Got_ExitLevelcmd(UINT8 **cp, INT32 playernum);
-static void Got_RequestSendcolorcmd(UINT8 **cp, INT32 playernum);
 static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum);
 static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum);
 static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum);
@@ -425,7 +424,6 @@ const char *netxcmdnames[MAXNETXCMD - 1] =
 	"VERIFIED",
 	"RANDOMSEED",
 	"RUNSOC",
-  "REQSENDCOLOR"
 	"REQADDFILE",
 	"REQADDFOLDER",
 	"SETMOTD",
@@ -463,7 +461,6 @@ void D_RegisterServerCommands(void)
   RegisterNetXCmd(XD_SENDCOLOR, Got_Sendcolorcmd);
 	RegisterNetXCmd(XD_ADDFILE, Got_Addfilecmd);
 	RegisterNetXCmd(XD_ADDFOLDER, Got_Addfoldercmd);
-  RegisterNetXCmd(XD_REQSENDCOLOR, Got_RequestSendcolorcmd);
 	RegisterNetXCmd(XD_REQADDFILE, Got_RequestAddfilecmd);
 	RegisterNetXCmd(XD_REQADDFOLDER, Got_RequestAddfoldercmd);
 	RegisterNetXCmd(XD_PAUSE, Got_Pause);
@@ -3396,6 +3393,8 @@ static void AddedFilesClearList(addedfile_t **itemHead)
   */
 static void Command_Sendcolor(void)
 {
+  if (!cv_allowsendcolor.value)
+    return;
   size_t argc = COM_Argc(); // amount of arguments total
   size_t curarg; // current argument index
   if (argc < 2)
@@ -3671,16 +3670,6 @@ static void Command_Addfolder(void)
 	}
 }
 
-static void Got_RequestSendcolorcmd(UINT8 **cp, INT32 playernum)
-{
-	// Only the server processes this message.
-  if (client)
-    return;
-  CONS_Printf(">oJ^ caught\n");
-  CONS_Printf("sendcolor val rn: %s; %i\n", *cp, COLORRAMPSIZE);
-  COM_BufAddText(va("sendcolor %s\n", *cp));
-}
-
 static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum)
 {
 	char filename[241];
@@ -3797,6 +3786,8 @@ static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum)
 
 static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 {
+  if (!cv_allowsendcolor.value) // dont do anything if sendcolor is not allowed
+    return;
 	// init freeslot
   // stollen from the readfreeslots in deh_soc.c
   const char* colorname = "bitten_test"; // temporary just constant
@@ -3878,7 +3869,6 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
   skincolors[num].chatcolor = 1;
   skincolors[num].accessible = 1;
 
-  COM_BufAddText("say color added\n");
 }
 static void Got_Addfilecmd(UINT8 **cp, INT32 playernum)
 {

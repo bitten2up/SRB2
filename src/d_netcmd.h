@@ -140,15 +140,14 @@ typedef enum
 	XD_VERIFIED,    // 15
 	XD_RANDOMSEED,  // 16
 	XD_RUNSOC,      // 17
-  XD_REQSENDCOLOR,// 18
-	XD_REQADDFILE,  // 19
-	XD_REQADDFOLDER,// 20
-	XD_SETMOTD,     // 21
-	XD_SUICIDE,     // 22
-	XD_DEMOTED,     // 23
-	XD_LUACMD,      // 24
-	XD_LUAVAR,      // 25
-	XD_LUAFILE,     // 26
+	XD_REQADDFILE,  // 18
+	XD_REQADDFOLDER,// 19
+	XD_SETMOTD,     // 20
+	XD_SUICIDE,     // 21
+	XD_DEMOTED,     // 22
+	XD_LUACMD,      // 23
+	XD_LUAVAR,      // 24
+	XD_LUAFILE,     // 25
 	MAXNETXCMD
 } netxcmd_t;
 
