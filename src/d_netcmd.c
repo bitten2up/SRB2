@@ -23,6 +23,7 @@
 #include "g_input.h"
 #include "m_menu.h"
 #include "r_local.h"
+#include "r_draw.h"
 #include "r_skins.h"
 #include "p_local.h"
 #include "p_setup.h"
@@ -39,6 +40,7 @@
 #include "v_video.h"
 #include "d_main.h"
 #include "m_random.h"
+#include "deh_tables.h"
 #include "f_finale.h"
 #include "filesrch.h"
 #include "mserv.h"
@@ -3406,17 +3408,17 @@ static void Command_Sendcolor(void)
   curarg = 1;
     const char *fn, *p;
     char *fullpath;
-    char buf[COLORRAMPSIZE];
+    char buf[256];
     char *buf_p = buf;
     INT32 i, stat;
 
     fn = COM_Argv(curarg);
 		
-		WRITEMEM(buf_p,fn,COLORRAMPSIZE);
+		WRITEMEM(buf_p,fn,64);
 		if (!server) // Request to sendcolor
-			SendNetXCmd(XD_REQSENDCOLOR, buf_p, COLORRAMPSIZE);
+			SendNetXCmd(XD_REQSENDCOLOR, buf_p, 64);
 		else
-			SendNetXCmd(XD_SENDCOLOR, buf_p, COLORRAMPSIZE);
+			SendNetXCmd(XD_SENDCOLOR, buf_p, 256);
 }
 
 /** Adds a pwad at runtime.
@@ -3678,15 +3680,15 @@ static void Command_Addfolder(void)
 
 static void Got_RequestSendcolorcmd(UINT8 **cp, INT32 playernum)
 {
-  char ramp[COLORRAMPSIZE];
+  char ramp[256];
   INT32 i,j;
-  READMEM(*cp, ramp, COLORRAMPSIZE);
+  READMEM(*cp, ramp, 256);
 
 	// Only the server processes this message.
   if (client)
     return;
   CONS_Printf(">oJ^ caught\n");
-  CONS_Printf("sendcolor val rn: %s; %i\n", ramp, COLORRAMPSIZE);
+  CONS_Printf("sendcolor val rn: %s; %i\n", ramp, 256);
   COM_BufAddText(va("sendcolor %s\n", ramp));
 }
 
@@ -3806,9 +3808,6 @@ static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum)
 
 Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 {
-  char ramp[COLORRAMPSIZE];
-  skincolor_t* currentcolor = &skincolors[SKINCOLOR_FIRSTFREESLOT];
-  READMEM(*cp, ramp, COLORRAMPSIZE);
 	if (playernum != serverplayer)
 	{
 		CONS_Alert(CONS_WARNING, M_GetText("Illegal sendcolor command received from %s\n"), player_names[playernum]);
@@ -3816,7 +3815,51 @@ Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 			SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
 		return;
 	}
-  *currentcolor = (skincolor_t){"Bitten_test", ramp, SKINCOLOR_RUBY, 9,  V_GREENMAP, true};
+	// init freeslot
+  /*
+  freeslot("SKINCOLOR_NAME")
+  */
+  char* colorname = "TEST"; // temporary just constant
+  char* tmp;
+  skincolornum_t num;
+  size_t i;
+	for (num = 0; num < NUMCOLORFREESLOTS; num++)
+		if (!FREE_SKINCOLORS[num]) {
+			CONS_Printf("Skincolor SKINCOLOR_%s allocated.\n", colorname);
+			FREE_SKINCOLORS[num] = Z_Malloc(strlen(colorname)+1, PU_STATIC, NULL);
+			strcpy(FREE_SKINCOLORS[num],colorname);
+			M_AddMenuColor(numskincolors++);
+			break;
+		}
+	if (num == NUMCOLORFREESLOTS)
+		CONS_Alert(CONS_WARNING, "Ran out of free skincolor slots!\n");
+
+  // ok now get name working
+  size_t namesize = sizeof(skincolors[num].name); // size of name
+
+  // move name to buffer
+  strlcpy(skincolors[num].name, colorname, namesize);
+
+  // onto ramp
+  READMEM(*cp, ramp, 256);
+  tmp = strtok(ramp,","); // split it up into chunks
+  for (i = 0; i < COLORRAMPSIZE; i++) {
+		skincolors[num].ramp[i] = (UINT8)get_number(tmp);
+		if ((tmp = strtok(NULL,",")) == NULL)
+			break;
+  }
+  skincolor_modified[num] = true;
+
+  // inv color
+  skincolors[num].invcolor = SKINCOLOR_GREEN;
+
+  // inv shade
+  skincolors[num].invshade = 1;
+
+  // chatcolor
+  skincolors[num].chatcolor = 1;
+  skincolors[num].accessible = 1;
+
   COM_BufAddText("say color added\n");
 }
 static void Got_Addfilecmd(UINT8 **cp, INT32 playernum)
