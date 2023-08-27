@@ -404,7 +404,7 @@ boolean splitscreen = false;
 boolean circuitmap = false;
 INT32 adminplayers[MAXPLAYERS];
 
-// fuck it, i need to have a way to keep track of every player's color so here is the array of every player
+// i need to have a way to keep track of every player's color so here is the array of every player's color
 UINT16 sentcolors[MAXPLAYERS] = {0};
 
 /// \warning Keep this up-to-date if you add/remove/rename net text commands
@@ -3391,30 +3391,39 @@ static void AddedFilesClearList(addedfile_t **itemHead)
 	}
 }
 
-/** Allows players to use custom skin colors without lua or soc addons
+/** Allows players to use custom skin colors without the use of addons
   * 
   */
 static void Command_Sendcolor(void)
 {
-  if (cv_allowsendcolor.value)
+  if (!cv_allowsendcolor.value) // dont do anything if sendcolor is not allowed
+  {
+    CONS_Alert(CONS_WARNING, "sendcolor is disabled by the server host\n");
     return;
+  }
   size_t argc = COM_Argc(); // amount of arguments total
-  size_t curarg; // current argument index
   if (argc < 2)
   {
     CONS_Printf(M_GetText("sendcolor <ramp>: Adds a temporary color to the server\n"));
     return;
   }
+  size_t i;
 
-  // start at one to skip command name
-	for (curarg = 1; curarg < argc; curarg++)
-  {
-    const char *fn;
-    fn = COM_Argv(curarg);
-    size_t i;
-		for (i = 0; fn[i] != '\0'; ++i);
-		SendNetXCmd(XD_SENDCOLOR, fn, i);
-  }
+  char *fn;
+	fn = Z_Malloc(sizeof(64), PU_STATIC, NULL);
+	strlcpy(fn, COM_Argv(1), sizeof 64);
+
+  // Disallow non-printing characters and semicolons.
+	for (i = 0; fn[i] != '\0'; i++)
+		if (fn[i] == ';' || (!isdigit(fn[i]) && fn[i] != ','))
+		{
+      CONS_Printf("invalid ramp\n");
+			Z_Free(fn);
+			return;
+		}
+
+	SendNetXCmd(XD_SENDCOLOR, fn, 64);
+  Z_Free(fn);
 }
 
 /** Adds a pwad at runtime.
@@ -3790,14 +3799,16 @@ static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum)
 
 static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 {
-  if (cv_allowsendcolor.value) // dont do anything if sendcolor is not allowed
+  // check if we are allowing sendcolor
+  if (!cv_allowsendcolor.value)
   {
-    CONS_Alert(CONS_WARNING, "sendcolor is disabled by the server host\n");
-    return;
+		CONS_Alert(CONS_WARNING, M_GetText("Illegal sendcolor command received from %s\n"), player_names[playernum]);
+		if (server)
+			SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
   }
 	// init freeslot
   // stollen from the readfreeslots in deh_soc.c
-  const char* colorname = va("SENDCOLOR_PLAYER%i", playernum); // temporary just constant
+  const char* colorname = va("PLAYER%i", playernum); // set value to the number of the player
   char* tmp;
   skincolornum_t num;
   size_t i;
@@ -3813,10 +3824,10 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 			  break;
 		  }
   }
-  else
+  else // edit existing color
   {
-    num = sentcolors[playernum]; // edit exsisting color
-    CONS_Printf("player %i already has a color, editing exsisting color\n", playernum);
+    num = sentcolors[playernum];
+    CONS_Printf("player %i already has a color, editing existing color\n", playernum);
   }
 	if (num == NUMCOLORFREESLOTS){
 		CONS_Alert(CONS_WARNING, "Ran out of free skincolor slots!\n");
@@ -3831,7 +3842,7 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 	strlcpy(skincolors[num].name, colorname, namesize); // already truncated
 
   // onto ramp
-  tmp = strtok(*cp,","); // split it up into chunks
+  tmp = strtok((char*)(*cp), ","); // split it up into chunks, also cast cp into a char* the ugly way
   for (i = 0; i < COLORRAMPSIZE; i++) {
 		skincolors[num].ramp[i] = (UINT8)get_number(tmp);
 		if ((tmp = strtok(NULL,",")) == NULL)
