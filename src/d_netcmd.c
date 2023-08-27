@@ -404,7 +404,7 @@ boolean splitscreen = false;
 boolean circuitmap = false;
 INT32 adminplayers[MAXPLAYERS];
 
-// i need to have a way to keep track of every player's color so here is the array of every player's color
+// fuck it, i need to have a way to keep track of every player's color so here is the array of every player's color
 UINT16 sentcolors[MAXPLAYERS] = {0};
 
 /// \warning Keep this up-to-date if you add/remove/rename net text commands
