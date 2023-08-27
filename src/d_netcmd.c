@@ -3816,7 +3816,7 @@ Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
   char* tmp;
   skincolornum_t num;
   size_t i;
-	for (num = 0; num < NUMCOLORFREESLOTS; num++)
+	for (num = 1; num < NUMCOLORFREESLOTS; num++)
 		if (!FREE_SKINCOLORS[num]) {
 			CONS_Printf("Skincolor SKINCOLOR_%s allocated.\n", colorname);
 			FREE_SKINCOLORS[num] = Z_Malloc(strlen(colorname)+1, PU_STATIC, NULL);
@@ -3827,11 +3827,50 @@ Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 	if (num == NUMCOLORFREESLOTS)
 		CONS_Alert(CONS_WARNING, "Ran out of free skincolor slots!\n");
 
-  // ok now get name working
-  size_t namesize = sizeof(skincolors[num].name); // size of name
+  // the rest is stollen from the readskincolor function in deh_soc.c 
 
-  // move name to buffer
-  strlcpy(skincolors[num].name, colorname, namesize);
+  // ok now get name working
+  size_t namesize = sizeof(skincolors[num].name);
+  char *truncword = malloc(namesize); // Follow C standard - SSNTails
+
+	UINT16 dupecheck;
+
+	deh_strlcpy(truncword, colorname, namesize, va("Skincolor %d: name", num)); // truncate here to check for dupes
+	dupecheck = R_GetColorByName(truncword);
+	if (truncword[0] != '\0' && (!stricmp(truncword, skincolors[SKINCOLOR_NONE].name) || (dupecheck && dupecheck != num)))
+	{
+		size_t lastchar = strlen(truncword);
+		char *oldword = malloc(lastchar + 1); // Follow C standard - SSNTails
+		char dupenum = '1';
+
+		strlcpy(oldword, truncword, lastchar+1);
+		lastchar--;
+		if (lastchar == namesize-2) // exactly max length, replace last character with 0
+			truncword[lastchar] = '0';
+    else // append 0
+		{
+			strcat(truncword, "0");
+			lastchar++;
+		}
+
+		while (R_GetColorByName(truncword))
+		{
+			truncword[lastchar] = dupenum;
+			if (dupenum == '9')
+				dupenum = 'A';
+			else if (dupenum == 'Z') // give up :?
+				break;
+			else
+				dupenum++;
+		}
+
+		deh_warning("Skincolor %d: name %s is a duplicate of another skincolor's name - renamed to %s", num, oldword, truncword);
+		free(oldword);
+	}
+
+	strlcpy(skincolors[num].name, truncword, namesize); // already truncated
+
+	free(truncword);
 
   // onto ramp
   tmp = strtok(*cp,","); // split it up into chunks
