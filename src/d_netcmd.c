@@ -417,7 +417,7 @@ const char *netxcmdnames[MAXNETXCMD - 1] =
 	"SAY",
 	"MAP",
 	"EXITLEVEL",
-  "SENDCOLOR",
+	"SENDCOLOR",
 	"ADDFILE",
 	"ADDFOLDER",
 	"PAUSE",
@@ -461,7 +461,7 @@ void D_RegisterServerCommands(void)
 	RegisterNetXCmd(XD_WEAPONPREF, Got_WeaponPref);
 	RegisterNetXCmd(XD_MAP, Got_Mapcmd);
 	RegisterNetXCmd(XD_EXITLEVEL, Got_ExitLevelcmd);
-  RegisterNetXCmd(XD_SENDCOLOR, Got_Sendcolorcmd);
+	RegisterNetXCmd(XD_SENDCOLOR, Got_Sendcolorcmd);
 	RegisterNetXCmd(XD_ADDFILE, Got_Addfilecmd);
 	RegisterNetXCmd(XD_ADDFOLDER, Got_Addfoldercmd);
 	RegisterNetXCmd(XD_REQADDFILE, Got_RequestAddfilecmd);
@@ -496,7 +496,7 @@ void D_RegisterServerCommands(void)
 	COM_AddCommand("showmap", Command_Showmap_f, COM_LUA);
 	COM_AddCommand("mapmd5", Command_Mapmd5_f, COM_LUA);
 
-  COM_AddCommand("sendcolor", Command_Sendcolor, 0);
+	COM_AddCommand("sendcolor", Command_Sendcolor, 0);
 	COM_AddCommand("addfolder", Command_Addfolder, COM_LUA);
 	COM_AddCommand("addfile", Command_Addfile, COM_LUA);
 	COM_AddCommand("listwad", Command_ListWADS_f, COM_LUA);
@@ -605,7 +605,7 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_noticedownload);
 	CV_RegisterVar(&cv_downloadspeed);
 #ifndef NONET
-  CV_RegisterVar(&cv_allowsendcolor);
+	CV_RegisterVar(&cv_allowsendcolor);
 	CV_RegisterVar(&cv_allownewplayer);
 	CV_RegisterVar(&cv_joinnextround);
 	CV_RegisterVar(&cv_showjoinaddress);
@@ -3396,34 +3396,34 @@ static void AddedFilesClearList(addedfile_t **itemHead)
   */
 static void Command_Sendcolor(void)
 {
-  if (!cv_allowsendcolor.value) // dont do anything if sendcolor is not allowed
-  {
-    CONS_Alert(CONS_WARNING, "sendcolor is disabled by the server host\n");
-    return;
-  }
-  size_t argc = COM_Argc(); // amount of arguments total
-  if (argc < 2)
-  {
-    CONS_Printf(M_GetText("sendcolor <ramp>: Adds a temporary color to the server\n"));
-    return;
-  }
-  size_t i;
+	if (!cv_allowsendcolor.value) // dont do anything if sendcolor is not allowed
+	{
+		CONS_Alert(CONS_WARNING, "sendcolor is disabled by the server host\n");
+		return;
+	}
+	size_t argc = COM_Argc(); // amount of arguments total
+	if (argc < 2)
+	{
+		CONS_Printf(M_GetText("sendcolor <ramp>: Adds a temporary color to the server\n"));
+		return;
+	}
+	size_t i;
 
-  char *ramp;
+	char *ramp;
 	ramp = Z_Malloc(COLORRAMPSIZE * 3 + COLORRAMPSIZE, PU_STATIC, NULL);
 	strlcpy(ramp, COM_Argv(1), COLORRAMPSIZE * 3 + COLORRAMPSIZE);
 
-  // Disallow non-printing characters and semicolons.
+	// Disallow non-printing characters and semicolons.
 	for (i = 0; ramp[i] != '\0'; i++)
 		if (ramp[i] == ';' || (!isdigit(ramp[i]) && ramp[i] != ','))
 		{
-      CONS_Printf("invalid ramp\n");
+			CONS_Printf("invalid ramp\n");
 			Z_Free(ramp);
 			return;
 		}
 
 	SendNetXCmd(XD_SENDCOLOR, ramp, COLORRAMPSIZE * 3 + COLORRAMPSIZE);
-  Z_Free(ramp);
+	Z_Free(ramp);
 }
 
 /** Adds a pwad at runtime.
@@ -3799,67 +3799,66 @@ static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum)
 
 static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 {
-  // check if we are allowing sendcolor
-  if (!cv_allowsendcolor.value)
-  {
+	// check if we are allowing sendcolor
+	if (!cv_allowsendcolor.value)
+	{
 		CONS_Alert(CONS_WARNING, M_GetText("Illegal sendcolor command received from %s\n"), player_names[playernum]);
 		if (server)
 			SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
-  }
+	}
 	// init freeslot
-  // stollen from the readfreeslots in deh_soc.c
-  const char* colorname = va("PLAYER%i", playernum); // set value to the number of the player
-  char* tmp;
-  skincolornum_t num;
-  size_t i;
-  if (sentcolors[playernum] == 0) // dont create more than one color per player
-  {
+	// stollen from the readfreeslots in deh_soc.c
+	const char* colorname = va("PLAYER%i", playernum); // set value to the number of the player
+	char* tmp;
+	skincolornum_t num;
+	size_t i;
+	if (sentcolors[playernum] == 0) // dont create more than one color per player
+	{
 	  for (num = 1; num < NUMCOLORFREESLOTS; num++)
 		  if (!FREE_SKINCOLORS[num]) {
 			  CONS_Printf("Skincolor SKINCOLOR_%s allocated.\n", colorname);
   			FREE_SKINCOLORS[num] = Z_Malloc(strlen(colorname)+1, PU_STATIC, NULL);
 	  		strcpy(FREE_SKINCOLORS[num],colorname);
-        sentcolors[playernum] = num; // keep track of it for later
+		sentcolors[playernum] = num; // keep track of it for later
 			  M_AddMenuColor(numskincolors++);
 			  break;
 		  }
-  }
-  else // edit existing color
-  {
-    num = sentcolors[playernum];
-    CONS_Printf("player %i already has a color, editing existing color\n", playernum);
-  }
+	}
+	else // edit existing color
+	{
+		num = sentcolors[playernum];
+		CONS_Printf("player %i already has a color, editing existing color\n", playernum);
+	}
 	if (num == NUMCOLORFREESLOTS){
 		CONS_Alert(CONS_WARNING, "Ran out of free skincolor slots!\n");
-    return;
-  }
+		return;
+	}
 
   // the rest is stollen from the readskincolor function in deh_soc.c 
 
   // ok now get name working
-  size_t namesize = sizeof(skincolors[num].name);
+	size_t namesize = sizeof(skincolors[num].name);
 
 	strlcpy(skincolors[num].name, colorname, namesize); // already truncated
 
   // onto ramp
-  tmp = strtok((char*)(*cp), ","); // split it up into chunks, also cast cp into a char* the ugly way
-  for (i = 0; i < COLORRAMPSIZE; i++) {
+	tmp = strtok((char*)(*cp), ","); // split it up into chunks, also cast cp into a char* the ugly way
+	for (i = 0; i < COLORRAMPSIZE; i++) {
 		skincolors[num].ramp[i] = (UINT8)get_number(tmp);
 		if ((tmp = strtok(NULL,",")) == NULL)
 			break;
-  }
-  skincolor_modified[num] = true;
+	}
+	skincolor_modified[num] = true;
 
-  // inv color
-  skincolors[num].invcolor = SKINCOLOR_GREEN;
+	// inv color
+	skincolors[num].invcolor = SKINCOLOR_GREEN;
 
-  // inv shade
-  skincolors[num].invshade = 1;
+	// inv shade
+	skincolors[num].invshade = 1;
 
-  // chatcolor
-  skincolors[num].chatcolor = 1;
-  skincolors[num].accessible = 1;
-
+	// chatcolor
+	skincolors[num].chatcolor = 1;
+	skincolors[num].accessible = 1;
 }
 static void Got_Addfilecmd(UINT8 **cp, INT32 playernum)
 {
