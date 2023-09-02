@@ -3817,7 +3817,7 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 
   // ok now get name working
 	size_t namesize = sizeof(skincolors[num].name);
-	num = R_GetColorByName(colorname);
+	num = R_GetColorByName(colorname); // gets the id of the color by name, normally if you are using c you would instead use defines, but i dont think there is a way to do that with varibles, so this will do
 
 	strlcpy(skincolors[num].name, colorname, namesize); // already truncated
 
@@ -3830,14 +3830,15 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 	}
 	skincolor_modified[num] = true;
 
-	// inv color
+	// inv color (1 is white)
 	skincolors[num].invcolor = SKINCOLOR_GREEN;
 
-	// inv shade
+	// inv shade 
 	skincolors[num].invshade = 1;
 
-	// chatcolor
+	// chatcolor (1 is white)
 	skincolors[num].chatcolor = 1;
+	// and finally accessible, we want to see it
 	skincolors[num].accessible = 1;
 	return;
 }
