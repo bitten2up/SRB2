@@ -677,6 +677,7 @@ extern int
 ///	\note	XMOD port.
 ///	    	Most modifications should probably enable this.
 //#define SAVEGAME_OTHERVERSIONS
+#define BITTEN_SENDCOLOR_TESTING
 
 ///	Shuffle's incomplete OpenGL sorting code.
 #define SHUFFLE // This has nothing to do with sorting, why was it disabled?

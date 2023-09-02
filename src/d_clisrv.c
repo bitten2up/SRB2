@@ -410,8 +410,10 @@ static void ExtraDataTicker(void)
 					{
 						if (server)
 						{
+#ifndef BITTEN_SENDCOLOR_DEBUGGING
 							SendKick(i, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
 							DEBFILE(va("player %d kicked [gametic=%u] reason as follows:\n", i, gametic));
+#endif
 						}
 						CONS_Alert(CONS_WARNING, M_GetText("Got unknown net command [%s]=%d (max %d)\n"), sizeu1(curpos - bufferstart), *curpos, bufferstart[0]);
 						break;

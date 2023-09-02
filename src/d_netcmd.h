@@ -130,7 +130,7 @@ typedef enum
 	XD_SAY,         // 5
 	XD_MAP,         // 6
 	XD_EXITLEVEL,   // 7
-  XD_SENDCOLOR,   // 8
+	XD_SENDCOLOR,   // 8
 	XD_ADDFILE,     // 9
 	XD_ADDFOLDER,   // 10
 	XD_PAUSE,       // 11

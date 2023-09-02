@@ -3407,11 +3407,11 @@ static void Command_Sendcolor(void)
 		CONS_Printf(M_GetText("sendcolor <ramp>: Adds a temporary color to the server\n"));
 		return;
 	}
-	size_t i;
 
-	char *ramp;
-	ramp = Z_Malloc(COLORRAMPSIZE * 3 + COLORRAMPSIZE, PU_STATIC, NULL);
-	strlcpy(ramp, COM_Argv(1), COLORRAMPSIZE * 3 + COLORRAMPSIZE);
+	char *ramp = Z_Malloc(64, PU_STATIC, NULL);;
+	INT32 i;
+
+	strlcpy(ramp, COM_Argv(1), 64);
 
 	// Disallow non-printing characters and semicolons.
 	for (i = 0; ramp[i] != '\0'; i++)
@@ -3422,7 +3422,7 @@ static void Command_Sendcolor(void)
 			return;
 		}
 
-	SendNetXCmd(XD_SENDCOLOR, ramp, COLORRAMPSIZE * 3 + COLORRAMPSIZE);
+	SendNetXCmd(XD_SENDCOLOR, ramp, 64);
 	Z_Free(ramp);
 }
 
@@ -3807,22 +3807,22 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 			SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
 	}
 	// init freeslot
-	// stollen from the readfreeslots in deh_soc.c
-	const char* colorname = va("PLAYER%i", playernum); // set value to the number of the player
+	// stollen from readfreeslots in deh_soc.c
+	const char* colorname = va("PLAYER%i", playernum); // set value to the player id of the player running the command
 	char* tmp;
 	skincolornum_t num;
 	size_t i;
 	if (sentcolors[playernum] == 0) // dont create more than one color per player
 	{
-	  for (num = 1; num < NUMCOLORFREESLOTS; num++)
-		  if (!FREE_SKINCOLORS[num]) {
-			  CONS_Printf("Skincolor SKINCOLOR_%s allocated.\n", colorname);
-  			FREE_SKINCOLORS[num] = Z_Malloc(strlen(colorname)+1, PU_STATIC, NULL);
-	  		strcpy(FREE_SKINCOLORS[num],colorname);
-		sentcolors[playernum] = num; // keep track of it for later
-			  M_AddMenuColor(numskincolors++);
-			  break;
-		  }
+		for (num = numskincolors; num < NUMCOLORFREESLOTS; num++)
+			if (!FREE_SKINCOLORS[num]) {
+				CONS_Printf("Skincolor SKINCOLOR_%s (number %i) allocated.\n", colorname, num);
+				FREE_SKINCOLORS[num] = Z_Malloc(strlen(colorname)+1, PU_STATIC, NULL);
+				strcpy(FREE_SKINCOLORS[num],colorname);
+				sentcolors[playernum] = num; // keep track of it for later
+				M_AddMenuColor(numskincolors++);
+				break;
+			}
 	}
 	else // edit existing color
 	{
