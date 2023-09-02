@@ -3812,32 +3812,12 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 	char* tmp;
 	skincolornum_t num;
 	size_t i;
-	if (sentcolors[playernum] == 0) // dont create more than one color per player
-	{
-		for (num = numskincolors; num < NUMCOLORFREESLOTS; num++)
-			if (!FREE_SKINCOLORS[num]) {
-				CONS_Printf("Skincolor SKINCOLOR_%s (number %i) allocated.\n", colorname, num);
-				FREE_SKINCOLORS[num] = Z_Malloc(strlen(colorname)+1, PU_STATIC, NULL);
-				strcpy(FREE_SKINCOLORS[num],colorname);
-				sentcolors[playernum] = num; // keep track of it for later
-				M_AddMenuColor(numskincolors++);
-				break;
-			}
-	}
-	else // edit existing color
-	{
-		num = sentcolors[playernum];
-		CONS_Printf("player %i already has a color, editing existing color\n", playernum);
-	}
-	if (num == NUMCOLORFREESLOTS){
-		CONS_Alert(CONS_WARNING, "Ran out of free skincolor slots!\n");
-		return;
-	}
 
   // the rest is stollen from the readskincolor function in deh_soc.c 
 
   // ok now get name working
 	size_t namesize = sizeof(skincolors[num].name);
+	num = R_GetColorByName(colorname);
 
 	strlcpy(skincolors[num].name, colorname, namesize); // already truncated
 
@@ -3859,6 +3839,7 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 	// chatcolor
 	skincolors[num].chatcolor = 1;
 	skincolors[num].accessible = 1;
+	return;
 }
 static void Got_Addfilecmd(UINT8 **cp, INT32 playernum)
 {
