@@ -3805,6 +3805,7 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 		CONS_Alert(CONS_WARNING, M_GetText("Illegal sendcolor command received from %s\n"), player_names[playernum]);
 		if (server)
 			SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
+		return;
 	}
 	// init freeslot
 	// stollen from readfreeslots in deh_soc.c
@@ -3823,6 +3824,15 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 
   // onto ramp
 	tmp = strtok((char*)(*cp), ","); // split it up into chunks, also cast cp into a char* the ugly way
+	// Disallow non-printing characters and semicolons.
+	for (i = 0; tmp[i] != '\0'; i++)
+		if (tmp[i] == ';' || (!isdigit(tmp[i]) && tmp[i] != ','))
+		{
+			CONS_Alert(CONS_WARNING, M_GetText("Illegal sendcolor command received from %s\n (invalid ramp)"), player_names[playernum]);
+			if (server)
+				SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
+			return;
+		}
 	for (i = 0; i < COLORRAMPSIZE; i++) {
 		skincolors[num].ramp[i] = (UINT8)get_number(tmp);
 		if ((tmp = strtok(NULL,",")) == NULL)
