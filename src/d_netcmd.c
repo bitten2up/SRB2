@@ -3408,22 +3408,21 @@ static void Command_Sendcolor(void)
 		return;
 	}
 
-	char *ramp = Z_Malloc(64, PU_STATIC, NULL);;
-	INT32 i;
+	char ramp[64];
 
-	strlcpy(ramp, COM_Argv(1), 64);
+	strlcpy(ramp, COM_Argv(1), sizeof(ramp));
 
-	// Disallow non-printing characters and semicolons.
-	for (i = 0; ramp[i] != '\0'; i++)
+	// Disallow non-integer characters and semicolons.
+	UINT8 i;
+	for (i = 0; ramp[i] != '\0' || i == 64; i++)
 		if (ramp[i] == ';' || (!isdigit(ramp[i]) && ramp[i] != ','))
 		{
 			CONS_Printf("invalid ramp\n");
-			Z_Free(ramp);
 			return;
 		}
 
-	SendNetXCmd(XD_SENDCOLOR, ramp, 64);
-	Z_Free(ramp);
+	if ((netgame || multiplayer))
+		SendNetXCmd(XD_SENDCOLOR, ramp, sizeof(ramp));
 }
 
 /** Adds a pwad at runtime.
