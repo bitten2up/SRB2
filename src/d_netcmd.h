@@ -130,23 +130,24 @@ typedef enum
 	XD_SAY,         // 5
 	XD_MAP,         // 6
 	XD_EXITLEVEL,   // 7
-	XD_ADDFILE,     // 8
-	XD_ADDFOLDER,   // 9
-	XD_PAUSE,       // 10
-	XD_ADDPLAYER,   // 11
-	XD_TEAMCHANGE,  // 12
-	XD_CLEARSCORES, // 13
-	XD_VERIFIED,    // 14
-	XD_RANDOMSEED,  // 15
-	XD_RUNSOC,      // 16
-	XD_REQADDFILE,  // 17
-	XD_REQADDFOLDER,// 18
-	XD_SETMOTD,     // 19
-	XD_SUICIDE,     // 20
-	XD_DEMOTED,     // 21
-	XD_LUACMD,      // 22
-	XD_LUAVAR,      // 23
-	XD_LUAFILE,     // 24
+	XD_SENDCOLOR,   // 8
+	XD_ADDFILE,     // 9
+	XD_ADDFOLDER,   // 10
+	XD_PAUSE,       // 11
+	XD_ADDPLAYER,   // 12
+	XD_TEAMCHANGE,  // 13
+	XD_CLEARSCORES, // 14
+	XD_VERIFIED,    // 15
+	XD_RANDOMSEED,  // 16
+	XD_RUNSOC,      // 17
+	XD_REQADDFILE,  // 18
+	XD_REQADDFOLDER,// 19
+	XD_SETMOTD,     // 20
+	XD_SUICIDE,     // 21
+	XD_DEMOTED,     // 22
+	XD_LUACMD,      // 23
+	XD_LUAVAR,      // 24
+	XD_LUAFILE,     // 25
 	MAXNETXCMD
 } netxcmd_t;
 

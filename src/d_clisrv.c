@@ -169,6 +169,7 @@ static textcmdtic_t *textcmds[TEXTCMD_HASH_SIZE] = {NULL};
 
 
 consvar_t cv_showjoinaddress = CVAR_INIT ("showjoinaddress", "Off", CV_SAVE|CV_NETVAR, CV_OnOff, NULL);
+consvar_t cv_allowsendcolor = CVAR_INIT ("allowsendcolor", "On", CV_SAVE|CV_NETVAR, CV_OnOff, NULL);
 
 static CV_PossibleValue_t playbackspeed_cons_t[] = {{1, "MIN"}, {10, "MAX"}, {0, NULL}};
 consvar_t cv_playbackspeed = CVAR_INIT ("playbackspeed", "1", 0, playbackspeed_cons_t, NULL);
@@ -409,8 +410,10 @@ static void ExtraDataTicker(void)
 					{
 						if (server)
 						{
+#ifndef BITTEN_SENDCOLOR_DEBUGGING
 							SendKick(i, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
 							DEBFILE(va("player %d kicked [gametic=%u] reason as follows:\n", i, gametic));
+#endif
 						}
 						CONS_Alert(CONS_WARNING, M_GetText("Got unknown net command [%s]=%d (max %d)\n"), sizeu1(curpos - bufferstart), *curpos, bufferstart[0]);
 						break;
