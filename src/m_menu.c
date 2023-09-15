@@ -7208,7 +7208,7 @@ static void M_DrawAddons(void)
 	}
 
 	if (Playing())
-		V_DrawCenteredString(BASEVIDWIDTH/2, 5, warningflags, "Adding files mid-game may cause problems.");
+		V_DrawCenteredString(BASEVIDWIDTH/2, 5, warningflags, "Adding files mid-game may cause complications.");
 	else
 		V_DrawCenteredString(BASEVIDWIDTH/2, 5, 0, LOCATIONSTRING1);
 			// (recommendedflags == V_SKYMAP ? LOCATIONSTRING2 : LOCATIONSTRING1)
@@ -9087,7 +9087,7 @@ static void M_DrawLoadGameData(void)
 			y += 1;
 			V_DrawString(x, y,
 				((savetodraw == saveSlotSelected) ? V_YELLOWMAP : 0),
-				"NO FILE");
+				"NO CUSTOM");
 			if (savetodraw == saveSlotSelected)
 				V_DrawFill(x, y+9, 80, 1, yellowmap[3]);
 			y += 11;
@@ -9095,7 +9095,7 @@ static void M_DrawLoadGameData(void)
 			M_DrawStaticBox(x, y, V_80TRANS, 80, 50);
 			y += 41;
 			if (ultimate_selectable)
-				V_DrawRightAlignedThinString(x + 79, y, V_REDMAP, "ULTIMATE.");
+				V_DrawRightAlignedThinString(x + 79, y, V_REDMAP, "TORTURE.");
 			else
 				V_DrawRightAlignedThinString(x + 79, y, V_GRAYMAP, "DON'T SAVE!");
 
@@ -9157,7 +9157,7 @@ static void M_DrawLoadGameData(void)
 		y += 1;
 		V_DrawString(x, y,
 			((savetodraw == saveSlotSelected-1) ? V_YELLOWMAP : 0),
-			va("FILE %d", savetodraw+1));
+			va("\'CUSTOM\' %d", savetodraw+1));
 		if (savetodraw == saveSlotSelected-1)
 				V_DrawFill(x, y+9, 80, 1, yellowmap[3]);
 		y += 11;
