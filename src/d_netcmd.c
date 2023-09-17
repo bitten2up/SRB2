@@ -69,7 +69,7 @@ static void Got_Mapcmd(UINT8 **cp, INT32 playernum);
 static void Got_ExitLevelcmd(UINT8 **cp, INT32 playernum);
 static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum);
 static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum);
-static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum);
+static void Got_Setcolorcmd(UINT8 **cp, INT32 playernum);
 static void Got_Addfilecmd(UINT8 **cp, INT32 playernum);
 static void Got_Addfoldercmd(UINT8 **cp, INT32 playernum);
 static void Got_Pause(UINT8 **cp, INT32 playernum);
@@ -122,7 +122,7 @@ static void Command_StopMovie_f(void);
 static void Command_Map_f(void);
 static void Command_ResetCamera_f(void);
 
-static void Command_Sendcolor(void);
+static void Command_Setcolor(void);
 static void Command_Addfile(void);
 static void Command_Addfolder(void);
 static void Command_ListWADS_f(void);
@@ -418,7 +418,7 @@ const char *netxcmdnames[MAXNETXCMD - 1] =
 	"SAY",
 	"MAP",
 	"EXITLEVEL",
-	"SENDCOLOR",
+	"SETCOLOR",
 	"ADDFILE",
 	"ADDFOLDER",
 	"PAUSE",
@@ -462,7 +462,7 @@ void D_RegisterServerCommands(void)
 	RegisterNetXCmd(XD_WEAPONPREF, Got_WeaponPref);
 	RegisterNetXCmd(XD_MAP, Got_Mapcmd);
 	RegisterNetXCmd(XD_EXITLEVEL, Got_ExitLevelcmd);
-	RegisterNetXCmd(XD_SENDCOLOR, Got_Sendcolorcmd);
+	RegisterNetXCmd(XD_SETCOLOR, Got_Setcolorcmd);
 	RegisterNetXCmd(XD_ADDFILE, Got_Addfilecmd);
 	RegisterNetXCmd(XD_ADDFOLDER, Got_Addfoldercmd);
 	RegisterNetXCmd(XD_REQADDFILE, Got_RequestAddfilecmd);
@@ -497,7 +497,7 @@ void D_RegisterServerCommands(void)
 	COM_AddCommand("showmap", Command_Showmap_f, COM_LUA);
 	COM_AddCommand("mapmd5", Command_Mapmd5_f, COM_LUA);
 
-	COM_AddCommand("sendcolor", Command_Sendcolor, 0);
+	COM_AddCommand("setcolor", Command_Setcolor, 0);
 	COM_AddCommand("addfolder", Command_Addfolder, COM_LUA);
 	COM_AddCommand("addfile", Command_Addfile, COM_LUA);
 	COM_AddCommand("listwad", Command_ListWADS_f, COM_LUA);
@@ -606,7 +606,7 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_noticedownload);
 	CV_RegisterVar(&cv_downloadspeed);
 #ifndef NONET
-	CV_RegisterVar(&cv_allowsendcolor);
+	CV_RegisterVar(&cv_allowsetcolor);
 	CV_RegisterVar(&cv_allownewplayer);
 	CV_RegisterVar(&cv_joinnextround);
 	CV_RegisterVar(&cv_showjoinaddress);
@@ -3283,17 +3283,17 @@ static void AddedFilesClearList(addedfile_t **itemHead)
 /** Allows players to use custom skin colors without the use of addons
   * 
   */
-static void Command_Sendcolor(void)
+static void Command_Setcolor(void)
 {
-	if (!cv_allowsendcolor.value) // dont do anything if sendcolor is not allowed
+	if (!cv_allowsetcolor.value) // dont do anything if setcolor is not allowed
 	{
-		CONS_Alert(CONS_WARNING, "sendcolor is disabled by the server host\n");
+		CONS_Alert(CONS_WARNING, "setcolor is disabled by the server host\n");
 		return;
 	}
 	size_t argc = COM_Argc(); // amount of arguments total
 	if (argc < 2)
 	{
-		CONS_Printf(M_GetText("sendcolor <ramp>: Adds a temporary color to the server\n"));
+		CONS_Printf(M_GetText("setcolor <ramp>: Adds a temporary color to the server\n"));
 		return;
 	}
 
@@ -3311,7 +3311,7 @@ static void Command_Sendcolor(void)
 		}
 
 	if ((netgame || multiplayer))
-		SendNetXCmd(XD_SENDCOLOR, ramp, sizeof(ramp));
+		SendNetXCmd(XD_SETCOLOR, ramp, sizeof(ramp));
 }
 
 /** Adds a pwad at runtime.
@@ -3685,12 +3685,12 @@ static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum)
 	COM_BufAddText(va("addfolder \"%s\"\n", path));
 }
 
-static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
+static void Got_Setcolorcmd(UINT8 **cp, INT32 playernum)
 {
-	// check if we are allowing sendcolor
-	if (!cv_allowsendcolor.value)
+	// check if we are allowing setcolor
+	if (!cv_allowsetcolor.value)
 	{
-		CONS_Alert(CONS_WARNING, M_GetText("Illegal sendcolor command received from %s\n"), player_names[playernum]);
+		CONS_Alert(CONS_WARNING, M_GetText("Illegal setcolor command received from %s\n"), player_names[playernum]);
 		if (server)
 			SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
 		return;
@@ -3706,21 +3706,23 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 
   // ok now get name working
 	size_t namesize = sizeof(skincolors[num].name);
-	num = R_GetColorByName(colorname); // gets the id of the color by name, normally if you are using c you would instead use defines, but i dont think there is a way to do that with varibles, so this will do
+	// gets the id of the color by name, normally if you are using c you would instead use defines, but i dont think there is a way to do that with varibles, so this will do
+	num = R_GetColorByName(colorname);
 
 	strlcpy(skincolors[num].name, colorname, namesize); // already truncated
 
   // onto ramp
 	tmp = strtok((char*)(*cp), ","); // split it up into chunks, also cast cp into a char* the ugly way
-	// Disallow non-printing characters and semicolons.
+	// Disallow non-integer characters and semicolons.
 	for (i = 0; tmp[i] != '\0'; i++)
 		if (tmp[i] == ';' || (!isdigit(tmp[i]) && tmp[i] != ','))
 		{
-			CONS_Alert(CONS_WARNING, M_GetText("Illegal sendcolor command received from %s\n (invalid ramp)"), player_names[playernum]);
+			CONS_Alert(CONS_WARNING, M_GetText("Illegal setcolor command received from %s\n (invalid ramp)"), player_names[playernum]);
 			if (server)
 				SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
 			return;
 		}
+	// loop to read the ramp
 	for (i = 0; i < COLORRAMPSIZE; i++) {
 		skincolors[num].ramp[i] = (UINT8)get_number(tmp);
 		if ((tmp = strtok(NULL,",")) == NULL)
@@ -3728,10 +3730,10 @@ static void Got_Sendcolorcmd(UINT8 **cp, INT32 playernum)
 	}
 	skincolor_modified[num] = true;
 
-	// inv color (1 is white)
+	// inv color (im not having the player provide this stuff just yet)
 	skincolors[num].invcolor = SKINCOLOR_GREEN;
 
-	// inv shade 
+	// inv shade
 	skincolors[num].invshade = 1;
 
 	// chatcolor (1 is white)

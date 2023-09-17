@@ -169,7 +169,7 @@ static textcmdtic_t *textcmds[TEXTCMD_HASH_SIZE] = {NULL};
 
 
 consvar_t cv_showjoinaddress = CVAR_INIT ("showjoinaddress", "Off", CV_SAVE|CV_NETVAR, CV_OnOff, NULL);
-consvar_t cv_allowsendcolor = CVAR_INIT ("allowsendcolor", "On", CV_SAVE|CV_NETVAR, CV_OnOff, NULL);
+consvar_t cv_allowsetcolor = CVAR_INIT ("allowsetcolor", "On", CV_SAVE|CV_NETVAR, CV_OnOff, NULL);
 
 static CV_PossibleValue_t playbackspeed_cons_t[] = {{1, "MIN"}, {10, "MAX"}, {0, NULL}};
 consvar_t cv_playbackspeed = CVAR_INIT ("playbackspeed", "1", 0, playbackspeed_cons_t, NULL);

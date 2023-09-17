@@ -350,7 +350,7 @@ extern INT32 mapchangepending;
 extern doomdata_t *netbuffer;
 
 extern consvar_t cv_showjoinaddress;
-extern consvar_t cv_allowsendcolor;
+extern consvar_t cv_allowsetcolor;
 extern consvar_t cv_playbackspeed;
 
 #define BASEPACKETSIZE      offsetof(doomdata_t, u)
