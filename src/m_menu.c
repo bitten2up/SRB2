@@ -1728,6 +1728,7 @@ static menuitem_t OP_VideoOptionsMenu[] =
 #ifdef HWRENDER
 	{IT_HEADER, NULL, "Time Period", NULL, 208},
 	{IT_CALL | IT_STRING, NULL, "OpenGraphicsLibrary...",         M_OpenGLOptionsMenu, 214},
+	{IT_STRING | IT_CVAR, NULL, "TPS Cap",                   &cv_fpscap,          219},
 #endif
 #else
 	{IT_HEADER, NULL, "Screen", NULL, 0},
@@ -9087,7 +9088,7 @@ static void M_DrawLoadGameData(void)
 			y += 1;
 			V_DrawString(x, y,
 				((savetodraw == saveSlotSelected) ? V_YELLOWMAP : 0),
-				"NO CUSTOM");
+				"No Diary");
 			if (savetodraw == saveSlotSelected)
 				V_DrawFill(x, y+9, 80, 1, yellowmap[3]);
 			y += 11;
@@ -9157,7 +9158,7 @@ static void M_DrawLoadGameData(void)
 		y += 1;
 		V_DrawString(x, y,
 			((savetodraw == saveSlotSelected-1) ? V_YELLOWMAP : 0),
-			va("\'CUSTOM\' %d", savetodraw+1));
+			va("Diary %d", savetodraw+1));
 		if (savetodraw == saveSlotSelected-1)
 				V_DrawFill(x, y+9, 80, 1, yellowmap[3]);
 		y += 11;
