@@ -23,6 +23,7 @@
 #include "../g_input.h"
 #include "../m_menu.h"
 #include "../r_local.h"
+#include "../r_draw.h"
 #include "../r_skins.h"
 #include "../p_local.h"
 #include "../p_setup.h"
@@ -41,6 +42,7 @@
 #include "../v_video.h"
 #include "../d_main.h"
 #include "../m_random.h"
+#include "../deh_tables.h"
 #include "../f_finale.h"
 #include "../filesrch.h"
 #include "mserv.h"
@@ -69,6 +71,7 @@ static void Got_Mapcmd(UINT8 **cp, INT32 playernum);
 static void Got_ExitLevelcmd(UINT8 **cp, INT32 playernum);
 static void Got_RequestAddfilecmd(UINT8 **cp, INT32 playernum);
 static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum);
+static void Got_Setcolorcmd(UINT8 **cp, INT32 playernum);
 static void Got_Addfilecmd(UINT8 **cp, INT32 playernum);
 static void Got_Addfoldercmd(UINT8 **cp, INT32 playernum);
 static void Got_Pause(UINT8 **cp, INT32 playernum);
@@ -121,6 +124,7 @@ static void Command_StopMovie_f(void);
 static void Command_Map_f(void);
 static void Command_ResetCamera_f(void);
 
+static void Command_Setcolor(void);
 static void Command_Addfile(void);
 static void Command_Addfolder(void);
 static void Command_ListWADS_f(void);
@@ -403,6 +407,9 @@ boolean splitscreen = false;
 boolean circuitmap = false;
 INT32 adminplayers[MAXPLAYERS];
 
+// fuck it, i need to have a way to keep track of every player's color so here is the array of every player's color
+UINT16 sentcolors[MAXPLAYERS] = {0};
+
 /// \warning Keep this up-to-date if you add/remove/rename net text commands
 const char *netxcmdnames[MAXNETXCMD - 1] =
 {
@@ -413,6 +420,7 @@ const char *netxcmdnames[MAXNETXCMD - 1] =
 	"SAY",
 	"MAP",
 	"EXITLEVEL",
+	"SETCOLOR",
 	"ADDFILE",
 	"ADDFOLDER",
 	"PAUSE",
@@ -456,6 +464,7 @@ void D_RegisterServerCommands(void)
 	RegisterNetXCmd(XD_WEAPONPREF, Got_WeaponPref);
 	RegisterNetXCmd(XD_MAP, Got_Mapcmd);
 	RegisterNetXCmd(XD_EXITLEVEL, Got_ExitLevelcmd);
+	RegisterNetXCmd(XD_SETCOLOR, Got_Setcolorcmd);
 	RegisterNetXCmd(XD_ADDFILE, Got_Addfilecmd);
 	RegisterNetXCmd(XD_ADDFOLDER, Got_Addfoldercmd);
 	RegisterNetXCmd(XD_REQADDFILE, Got_RequestAddfilecmd);
@@ -490,6 +499,7 @@ void D_RegisterServerCommands(void)
 	COM_AddCommand("showmap", Command_Showmap_f, COM_LUA);
 	COM_AddCommand("mapmd5", Command_Mapmd5_f, COM_LUA);
 
+	COM_AddCommand("setcolor", Command_Setcolor, 0);
 	COM_AddCommand("addfolder", Command_Addfolder, COM_LUA);
 	COM_AddCommand("addfile", Command_Addfile, COM_LUA);
 	COM_AddCommand("listwad", Command_ListWADS_f, COM_LUA);
@@ -597,6 +607,7 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_maxsend);
 	CV_RegisterVar(&cv_noticedownload);
 	CV_RegisterVar(&cv_downloadspeed);
+	CV_RegisterVar(&cv_allowsetcolor);
 	CV_RegisterVar(&cv_allownewplayer);
 	CV_RegisterVar(&cv_showjoinaddress);
 	CV_RegisterVar(&cv_blamecfail);
@@ -3268,6 +3279,40 @@ static void AddedFilesClearList(addedfile_t **itemHead)
 	}
 }
 
+/** Allows players to use custom skin colors without the use of addons
+  * 
+  */
+static void Command_Setcolor(void)
+{
+	if (!cv_allowsetcolor.value) // dont do anything if setcolor is not allowed
+	{
+		CONS_Alert(CONS_WARNING, "setcolor is disabled by the server host\n");
+		return;
+	}
+	size_t argc = COM_Argc(); // amount of arguments total
+	if (argc < 2)
+	{
+		CONS_Printf(M_GetText("setcolor <ramp>: Adds a temporary color to the server\n"));
+		return;
+	}
+
+	char ramp[64];
+
+	strlcpy(ramp, COM_Argv(1), sizeof(ramp));
+
+	// Disallow non-integer characters and semicolons.
+	UINT8 i;
+	for (i = 0; ramp[i] != '\0' || i == 64; i++)
+		if (ramp[i] == ';' || (!isdigit(ramp[i]) && ramp[i] != ','))
+		{
+			CONS_Printf("invalid ramp\n");
+			return;
+		}
+
+	if ((netgame || multiplayer))
+		SendNetXCmd(XD_SETCOLOR, ramp, sizeof(ramp));
+}
+
 /** Adds a pwad at runtime.
   * Searches for sounds, maps, music, new images.
   */
@@ -3639,6 +3684,63 @@ static void Got_RequestAddfoldercmd(UINT8 **cp, INT32 playernum)
 	COM_BufAddText(va("addfolder \"%s\"\n", path));
 }
 
+static void Got_Setcolorcmd(UINT8 **cp, INT32 playernum)
+{
+	// check if we are allowing setcolor
+	if (!cv_allowsetcolor.value)
+	{
+		CONS_Alert(CONS_WARNING, M_GetText("Illegal setcolor command received from %s\n"), player_names[playernum]);
+		if (server)
+			SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
+		return;
+	}
+	// init freeslot
+	// stollen from readfreeslots in deh_soc.c
+	const char* colorname = va("PLAYER%i", playernum); // set value to the player id of the player running the command
+	char* tmp;
+	skincolornum_t num;
+	size_t i;
+
+  // the rest is stollen from the readskincolor function in deh_soc.c 
+
+  // ok now get name working
+	size_t namesize = sizeof(skincolors[num].name);
+	// gets the id of the color by name, normally if you are using c you would instead use defines, but i dont think there is a way to do that with varibles, so this will do
+	num = R_GetColorByName(colorname);
+
+	strlcpy(skincolors[num].name, colorname, namesize); // already truncated
+
+  // onto ramp
+	tmp = strtok((char*)(*cp), ","); // split it up into chunks, also cast cp into a char* the ugly way
+	// Disallow non-integer characters and semicolons.
+	for (i = 0; tmp[i] != '\0'; i++)
+		if (tmp[i] == ';' || (!isdigit(tmp[i]) && tmp[i] != ','))
+		{
+			CONS_Alert(CONS_WARNING, M_GetText("Illegal setcolor command received from %s\n (invalid ramp)"), player_names[playernum]);
+			if (server)
+				SendKick(playernum, KICK_MSG_CON_FAIL | KICK_MSG_KEEP_BODY);
+			return;
+		}
+	// loop to read the ramp
+	for (i = 0; i < COLORRAMPSIZE; i++) {
+		skincolors[num].ramp[i] = (UINT8)get_number(tmp);
+		if ((tmp = strtok(NULL,",")) == NULL)
+			break;
+	}
+	skincolor_modified[num] = true;
+
+	// inv color (im not having the player provide this stuff just yet)
+	skincolors[num].invcolor = SKINCOLOR_GREEN;
+
+	// inv shade
+	skincolors[num].invshade = 1;
+
+	// chatcolor (1 is white)
+	skincolors[num].chatcolor = 1;
+	// and finally accessible, we want to see it
+	skincolors[num].accessible = 1;
+	return;
+}
 static void Got_Addfilecmd(UINT8 **cp, INT32 playernum)
 {
 	char filename[241];
