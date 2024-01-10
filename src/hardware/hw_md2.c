@@ -582,7 +582,7 @@ modelfound:
 	fclose(f);
 }
 
-void HWR_AddPlayerModel(int skin) // For skins that were added after startup
+void HWR_AddPlayerModel(INT32 skin) // For skins that were added after startup
 {
 	FILE *f;
 	char name[26], filename[32];
@@ -1641,7 +1641,9 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		p.flip = atransform.flip;
 		p.mirror = atransform.mirror;
 
+#ifdef GL_SHADERS
 		HWD.pfnSetShader(SHADER_MODEL);	// model shader
+#endif
 		{
 			float this_scale = FIXED_TO_FLOAT(interp.scale);
 

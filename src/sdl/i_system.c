@@ -2358,8 +2358,8 @@ INT32 I_StartupSystem(void)
 		PTMSYSM_ConfigureNew3DSCPU(3);
 		osSetSpeedupEnable(true);
 	}
-	//gfxInitDefault();
-	//consoleInit(GFX_BOTTOM, NULL);
+	gfxInitDefault();
+	consoleInit(GFX_BOTTOM, NULL);
 #endif
 	SDL_version SDLcompiled;
 	SDL_version SDLlinked;
@@ -3145,7 +3145,7 @@ size_t I_GetFreeMem(size_t *total)
 	return freeKBytes << 10;
 #elif defined (__3DS__)
 	if (total)
-		*total = 178 * 1024 * 1024;
+		*total = 128 * 1024 * 1024;
 	return linearSpaceFree() + vramSpaceFree();
 #else
 	// Guess 48 MB.

@@ -365,7 +365,11 @@ static void HWR_RenderPlane(subsector_t *subsector, extrasubsector_t *xsub, bool
 	FOutVector *v3d;
 	polyvertex_t *pv;
 	pslope_t *slope = NULL;
+#ifdef GL_SHADERS
 	INT32 shader = SHADER_DEFAULT;
+#else
+	INT32 shader = 0;
+#endif
 
 	size_t nrPlaneVerts;
 	INT32 i;
@@ -547,6 +551,7 @@ static void HWR_RenderPlane(subsector_t *subsector, extrasubsector_t *xsub, bool
 	else
 		PolyFlags |= PF_Masked|PF_Modulated;
 
+#ifdef GL_SHADERS
 	if (HWR_UseShader())
 	{
 		if (PolyFlags & PF_Fog)
@@ -558,6 +563,7 @@ static void HWR_RenderPlane(subsector_t *subsector, extrasubsector_t *xsub, bool
 
 		PolyFlags |= PF_ColorMapped;
 	}
+#endif
 
 	HWR_ProcessPolygon(&Surf, planeVerts, nrPlaneVerts, PolyFlags, shader, false);
 
@@ -769,15 +775,21 @@ static void HWR_AddTransparentWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, I
 //
 static void HWR_ProjectWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blendmode, INT32 lightlevel, extracolormap_t *wallcolormap)
 {
+#ifdef GL_SHADERS
 	INT32 shader = SHADER_DEFAULT;
+#else
+	INT32 shader = 0;
+#endif
 
 	HWR_Lighting(pSurf, lightlevel, wallcolormap);
 
+#ifdef GL_SHADERS
 	if (HWR_UseShader())
 	{
 		shader = SHADER_WALL;
 		blendmode |= PF_ColorMapped;
 	}
+#endif
 
 	HWR_ProcessPolygon(pSurf, wallVerts, 4, blendmode|PF_Modulated|PF_Occlude, shader, false);
 }
@@ -2644,7 +2656,11 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 {
 	FSurfaceInfo Surf;
 	FOutVector *v3d;
+#ifdef GL_SHADERS
 	INT32 shader = SHADER_DEFAULT;
+#else
+	INT32 shader = 0;
+#endif
 
 	size_t nrPlaneVerts = polysector->numVertices;
 	INT32 i;
@@ -2798,11 +2814,13 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 	else
 		blendmode |= PF_Masked|PF_Modulated;
 
+#ifdef GL_SHADERS
 	if (HWR_UseShader())
 	{
 		shader = SHADER_FLOOR;
 		blendmode |= PF_ColorMapped;
 	}
+#endif
 
 	HWR_ProcessPolygon(&Surf, planeVerts, nrPlaneVerts, blendmode, shader, false);
 }
@@ -3550,7 +3568,11 @@ static void HWR_DrawDropShadow(mobj_t *thing, fixed_t scale)
 	float fscale; float fx; float fy; float offset;
 	extracolormap_t *colormap = NULL;
 	FBITFIELD blendmode = PF_Translucent|PF_Modulated;
+#ifdef GL_SHADERS
 	INT32 shader = SHADER_DEFAULT;
+#else
+	INT32 shader = 0;
+#endif
 	UINT8 i;
 	INT32 heightsec, phs;
 	SINT8 flip = P_MobjFlip(thing);
@@ -3672,11 +3694,13 @@ static void HWR_DrawDropShadow(mobj_t *thing, fixed_t scale)
 	HWR_Lighting(&sSurf, 0, colormap);
 	sSurf.PolyColor.s.alpha = alpha;
 
+#ifdef GL_SHADERS
 	if (HWR_UseShader())
 	{
 		shader = SHADER_SPRITE;
 		blendmode |= PF_ColorMapped;
 	}
+#endif
 
 	HWR_ProcessPolygon(&sSurf, shadowVerts, 4, blendmode, shader, false);
 }
@@ -3758,7 +3782,11 @@ static void HWR_SplitSprite(gl_vissprite_t *spr)
 	boolean lightset = true;
 	FBITFIELD blend = 0;
 	FBITFIELD occlusion;
+#ifdef GL_SHADERS
 	INT32 shader = SHADER_DEFAULT;
+#else
+	INT32 shader = 0;
+#endif
 	boolean use_linkdraw_hack = false;
 	UINT8 alpha;
 
@@ -3885,11 +3913,13 @@ static void HWR_SplitSprite(gl_vissprite_t *spr)
 		if (!occlusion) use_linkdraw_hack = true;
 	}
 
+#ifdef GL_SHADERS
 	if (HWR_UseShader())
 	{
 		shader = SHADER_SPRITE;
 		blend |= PF_ColorMapped;
 	}
+#endif
 
 	alpha = Surf.PolyColor.s.alpha;
 
@@ -4082,7 +4112,11 @@ static void HWR_DrawBoundingBox(gl_vissprite_t *vis)
 
 	Surf.PolyColor = V_GetColor(R_GetBoundingBoxColor(vis->mobj));
 	
+#ifdef GL_SHADERS
 	HWR_ProcessPolygon(&Surf, v, 24, (cv_renderhitboxgldepth.value ? 0 : PF_NoDepthTest)|PF_Modulated|PF_NoTexture|PF_WireFrame, SHADER_NONE, false);
+#else
+	HWR_ProcessPolygon(&Surf, v, 24, (cv_renderhitboxgldepth.value ? 0 : PF_NoDepthTest)|PF_Modulated|PF_NoTexture|PF_WireFrame, 0, false);
+#endif
 }
 
 // -----------------+
@@ -4329,7 +4363,11 @@ static void HWR_DrawSprite(gl_vissprite_t *spr)
 	}
 
 	{
+#ifdef GL_SHADERS
 		INT32 shader = SHADER_DEFAULT;
+#else
+		INT32 shader = 0;
+#endif
 		FBITFIELD blend = 0;
 		FBITFIELD occlusion;
 		boolean use_linkdraw_hack = false;
@@ -4386,11 +4424,13 @@ static void HWR_DrawSprite(gl_vissprite_t *spr)
 			if (!occlusion) use_linkdraw_hack = true;
 		}
 
+#ifdef GL_SHADERS
 		if (HWR_UseShader())
 		{
 			shader = SHADER_SPRITE;
 			blend |= PF_ColorMapped;
 		}
+#endif
 
 		HWR_ProcessPolygon(&Surf, wallVerts, 4, blend|PF_Modulated, shader, false);
 
@@ -4403,7 +4443,11 @@ static void HWR_DrawSprite(gl_vissprite_t *spr)
 // Sprite drawer for precipitation
 static inline void HWR_DrawPrecipitationSprite(gl_vissprite_t *spr)
 {
+#ifdef GL_SHADERS
 	INT32 shader = SHADER_DEFAULT;
+#else
+	INT32 shader = 0;
+#endif
 	FBITFIELD blend = 0;
 	FOutVector wallVerts[4];
 	patch_t *gpatch;
@@ -4492,11 +4536,13 @@ static inline void HWR_DrawPrecipitationSprite(gl_vissprite_t *spr)
 		blend = HWR_GetBlendModeFlag(spr->mobj->blendmode)|PF_Occlude;
 	}
 
+#ifdef GL_SHADERS
 	if (HWR_UseShader())
 	{
 		shader = SHADER_SPRITE;
 		blend |= PF_ColorMapped;
 	}
+#endif
 
 	HWR_ProcessPolygon(&Surf, wallVerts, 4, blend|PF_Modulated, shader, false);
 }
@@ -4848,7 +4894,9 @@ static void HWR_CreateDrawNodes(void)
 
 	// Okay! Let's draw it all! Woo!
 	HWD.pfnSetTransform(&atransform);
+#ifdef GL_SHADERS
 	HWD.pfnSetShader(SHADER_DEFAULT);
+#endif
 
 	for (i = 0; i < p; i++)
 	{
@@ -5921,8 +5969,9 @@ static void HWR_DrawSkyBackground(player_t *player)
 			HWR_ClearSkyDome();
 			HWR_BuildSkyDome();
 		}
-
+#ifdef GL_SHADERS
 		HWD.pfnSetShader(SHADER_SKY); // sky shader
+#endif
 		HWD.pfnSetTransform(&dometransform);
 		HWD.pfnRenderSkyDome(&gl_sky);
 	}
@@ -6009,7 +6058,9 @@ static void HWR_DrawSkyBackground(player_t *player)
 		HWD.pfnDrawPolygon(NULL, v, 4, 0);
 	}
 
+#ifdef GL_SHADERS
 	HWD.pfnSetShader(SHADER_DEFAULT);
+#endif
 }
 
 
@@ -6099,6 +6150,7 @@ static void HWR_SetTransformAiming(FTransform *trans, player_t *player, boolean 
 //
 static void HWR_SetShaderState(void)
 {
+#ifdef GL_SHADERS
 	hwdshaderoption_t state = cv_glshaders.value;
 
 	if (!cv_glallowshaders.value)
@@ -6106,6 +6158,7 @@ static void HWR_SetShaderState(void)
 
 	HWD.pfnSetSpecialState(HWD_SET_SHADERS, (INT32)state);
 	HWD.pfnSetShader(SHADER_DEFAULT);
+#endif
 }
 
 // ==========================================================================
@@ -6770,7 +6823,11 @@ void HWR_RenderWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend,
 	FBITFIELD blendmode = blend;
 	UINT8 alpha = pSurf->PolyColor.s.alpha; // retain the alpha
 
+#ifdef GL_SHADERS
 	INT32 shader = SHADER_DEFAULT;
+#else
+	INT32 shader = 0;
+#endif
 
 	// Lighting is done here instead so that fog isn't drawn incorrectly on transparent walls after sorting
 	HWR_Lighting(pSurf, lightlevel, wallcolormap);
@@ -6780,6 +6837,7 @@ void HWR_RenderWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend,
 	if (blend & PF_Environment)
 		blendmode |= PF_Occlude;	// PF_Occlude must be used for solid objects
 
+#ifdef GL_SHADERS
 	if (HWR_UseShader())
 	{
 		if (fogwall)
@@ -6789,6 +6847,7 @@ void HWR_RenderWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend,
 
 		blendmode |= PF_ColorMapped;
 	}
+#endif
 
 	if (fogwall)
 		blendmode |= PF_Fog;
@@ -6982,9 +7041,12 @@ static inline UINT16 HWR_FindShaderDefs(UINT16 wadnum)
 
 boolean HWR_CompileShaders(void)
 {
+#ifdef GL_SHADERS
 	return HWD.pfnCompileShaders();
+#endif
 }
 
+#ifdef GL_SHADERS
 customshaderxlat_t shaderxlat[] =
 {
 	{"Flat", SHADER_FLOOR},
@@ -6997,18 +7059,22 @@ customshaderxlat_t shaderxlat[] =
 	{"Sky", SHADER_SKY},
 	{NULL, 0},
 };
+#endif
 
 void HWR_LoadAllCustomShaders(void)
 {
+#ifdef GL_SHADERS
 	INT32 i;
 
 	// read every custom shader
 	for (i = 0; i < numwadfiles; i++)
 		HWR_LoadCustomShadersFromFile(i, W_FileHasFolders(wadfiles[i]));
+#endif
 }
 
 void HWR_LoadCustomShadersFromFile(UINT16 wadnum, boolean PK3)
 {
+#ifdef GL_SHADERS
 	UINT16 lump;
 	char *shaderdef, *line;
 	char *stoken;
@@ -7125,10 +7191,12 @@ skip_field:
 
 	Z_Free(line);
 	return;
+#endif
 }
 
 const char *HWR_GetShaderName(INT32 shader)
 {
+#ifdef GL_SHADERS
 	INT32 i;
 
 	if (shader)
@@ -7143,6 +7211,10 @@ const char *HWR_GetShaderName(INT32 shader)
 	}
 
 	return "Default";
+#else
+	return "None";
+#endif
+
 }
 
 #endif // HWRENDER
