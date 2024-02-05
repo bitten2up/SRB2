@@ -20,6 +20,7 @@
 #include "hw_main.h"
 #include "hw_glob.h"
 #include "hw_drv.h"
+#include "hw_vcache.h"
 
 #include "../m_misc.h" //FIL_WriteFile()
 #include "../r_draw.h" //viewborderlump
@@ -748,7 +749,7 @@ void HWR_DrawFlatFill (INT32 x, INT32 y, INT32 w, INT32 h, lumpnum_t flatlumpnum
 //  0--1
 void HWR_FadeScreenMenuBack(UINT16 color, UINT8 strength)
 {
-	FOutVector  v[4];
+	FOutVector v[4];
 	FSurfaceInfo Surf;
 
 	v[0].x = v[3].x = -1.0f;

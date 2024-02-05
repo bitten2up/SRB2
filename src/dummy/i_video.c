@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <3ds.h>
 #include <citro3d.h>
+#include <glide.h>
 
 #include "../doomdef.h"
 #include "../doomtype.h"

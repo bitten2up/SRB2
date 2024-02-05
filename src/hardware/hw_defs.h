@@ -245,7 +245,7 @@ enum ETextureFlags
 	TF_CHROMAKEYED = 0x00000010,
 	TF_TRANSPARENT = 0x00000040,        // texture with some alpha == 0
 };
-
+#ifdef TODO
 struct FTextureInfo
 {
 	UINT32 width, height;
@@ -256,6 +256,9 @@ struct FTextureInfo
 	struct FTextureInfo *prev, *next;
 };
 typedef struct FTextureInfo FTextureInfo;
+#else
+typedef struct GLMipmap_s FTextureInfo;
+#endif
 
 struct FLightInfo
 {

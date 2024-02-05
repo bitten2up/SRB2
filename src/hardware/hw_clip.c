@@ -75,7 +75,7 @@
 #include "../r_main.h"
 #include "../r_state.h"
 #include "../tables.h"
-#include "r_opengl/r_opengl.h"
+//#include "r_opengl/r_opengl.h"
 
 #ifdef HAVE_SPHEREFRUSTRUM
 static GLdouble viewMatrix[16];

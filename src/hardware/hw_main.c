@@ -686,6 +686,7 @@ static void HWR_RenderSkyPlane(extrasubsector_t *xsub, fixed_t fixedheight)
 		v3d->z = pv->y;
 	}
 
+	NDS3D_ResetRenderStatsMeasureEndAcc(0x1F);
 	HWD.pfnDrawPolygon(NULL, planeVerts, nrPlaneVerts, PF_Invisible|PF_NoTexture|PF_Occlude);
 }
 #endif //polysky
@@ -6718,6 +6719,7 @@ void HWR_Startup(void)
 		HWR_AddSessionCommands();
 		HWR_InitMapTextures();
 		HWR_InitModels();
+		HWR_InitVertexBuffer();
 #ifdef ALAM_LIGHTING
 		HWR_InitLight();
 #endif
