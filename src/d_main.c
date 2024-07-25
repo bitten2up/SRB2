@@ -1155,7 +1155,7 @@ static void IdentifyVersion(void)
 	if (srb2wad == NULL)
 		I_Error("No more free memory to look in %s", srb2waddir);
 	else
-		sprintf(srb2wad, pandf, srb2waddir, "srb2.pk3");
+		sprintf(srb2wad, pandf, srb2waddir, "DOOM.WAD");
 
 	// will be overwritten in case of -cdrom or unix/win home
 	snprintf(configfile, sizeof configfile, "%s" PATHSEP CONFIGFILENAME, srb2waddir);
@@ -1165,7 +1165,7 @@ static void IdentifyVersion(void)
 	if (srb2wad != NULL && FIL_ReadFileOK(srb2wad))
 		D_AddFile(&startupwadfiles, srb2wad);
 	else
-		I_Error("srb2.pk3 not found! Expected in %s, ss file: %s\n", srb2waddir, srb2wad);
+		I_Error("DOOM.WAD not found! Expected in %s, ss file: %s\n", srb2waddir, srb2wad);
 
 	if (srb2wad)
 		free(srb2wad);
@@ -1174,31 +1174,14 @@ static void IdentifyVersion(void)
 	// checking in D_SRB2Main
 
 	// Add the maps
-	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "zones.pk3"));
+	//D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "zones.pk3"));
 
 	// Add the players
-	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "player.dta"));
+	//D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "player.dta"));
 
 #ifdef USE_PATCH_DTA
 	// Add our crappy patches to fix our bugs
-	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "patch.pk3"));
-#endif
-
-#if !defined (HAVE_SDL) || defined (HAVE_MIXER)
-	{
-#define MUSICTEST(str) \
-		{\
-			const char *musicpath = va(pandf,srb2waddir,str);\
-			int ms = W_VerifyNMUSlumps(musicpath, false); \
-			if (ms == 1) \
-				D_AddFile(&startupwadfiles, musicpath); \
-			else if (ms == 0) \
-				I_Error("File "str" has been modified with non-music/sound lumps"); \
-		}
-
-		MUSICTEST("music.dta")
-		//MUSICTEST("patch_music.pk3")
-	}
+	//D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "patch.pk3"));
 #endif
 }
 
@@ -1432,7 +1415,7 @@ void D_SRB2Main(void)
 	// Have to be done here before files are loaded
 	M_InitCharacterTables();
 
-	mainwads = 3; // doesn't include music.dta
+	mainwads = 0; // doesn't include music.dta
 #ifdef USE_PATCH_DTA
 	mainwads++;
 #endif
@@ -1445,11 +1428,11 @@ void D_SRB2Main(void)
 #ifndef DEVELOP // md5s last updated 22/02/20 (ddmmyy)
 
 	// Check MD5s of autoloaded files
-	W_VerifyFileMD5(0, ASSET_HASH_SRB2_PK3); // srb2.pk3
-	W_VerifyFileMD5(1, ASSET_HASH_ZONES_PK3); // zones.pk3
-	W_VerifyFileMD5(2, ASSET_HASH_PLAYER_DTA); // player.dta
+	//W_VerifyFileMD5(0, ASSET_HASH_SRB2_PK3); // srb2.pk3
+	//W_VerifyFileMD5(1, ASSET_HASH_ZONES_PK3); // zones.pk3
+	//W_VerifyFileMD5(2, ASSET_HASH_PLAYER_DTA); // player.dta
 #ifdef USE_PATCH_DTA
-	W_VerifyFileMD5(3, ASSET_HASH_PATCH_PK3); // patch.pk3
+	//W_VerifyFileMD5(3, ASSET_HASH_PATCH_PK3); // patch.pk3
 #endif
 	// don't check music.dta because people like to modify it, and it doesn't matter if they do
 	// ...except it does if they slip maps in there, and that's what W_VerifyNMUSlumps is for.
