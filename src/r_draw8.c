@@ -285,6 +285,7 @@ void R_Draw2sMultiPatchColumn_8(void)
 
 void R_Draw2sMultiPatchTranslucentColumn_8(void)
 {
+	return;
 	INT32 count;
 	register UINT8 *dest;
 	register fixed_t frac;
@@ -2040,6 +2041,7 @@ void R_DrawTranslucentSpan_8 (void)
 
 void R_DrawWaterSpan_8(void)
 {
+	return;
 	UINT32 xposition;
 	UINT32 yposition;
 	UINT32 xstep, ystep;

@@ -1383,6 +1383,7 @@ void ST_runTitleCard(void)
 //
 void ST_drawTitleCard(void)
 {
+	return;
 	char *lvlttl = mapheaderinfo[gamemap-1]->lvlttl;
 	char *subttl = mapheaderinfo[gamemap-1]->subttl;
 	UINT8 actnum = mapheaderinfo[gamemap-1]->actnum;
