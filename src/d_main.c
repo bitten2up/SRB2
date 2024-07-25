@@ -928,50 +928,6 @@ void D_SRB2Loop(void)
 //  Demo
 // =========================================================================
 
-// [WDJ] Draw a palette src to a screen line
-void V_DrawPixels(UINT8 * line, int x, int count, UINT8* src)
-{
-    // vid : from video setup
-    switch(vid.modenum)
-    {
-     default:
-        memcpy( &line[x], src, count );
-        break;
-#if defined( ENABLE_DRAW15 ) || defined( ENABLE_DRAW16 )
-     case DRAW15:
-     case DRAW16:
-        line += x * 2;
-        while(count--)
-        {
-            *(uint16_t*)line = color8.to16[ *(src++) ];
-            line += 2;
-        }
-        break;
-#endif
-#ifdef ENABLE_DRAW24
-     case DRAW24:
-        line += x * 3;  // 3 byte per pixel
-        while(count--)
-        {
-            pixelunion32_t c32;
-            c32.ui32 = color8.to32[ *(src++) ];
-            *(pixel24_t*)line = c32.pix24;
-            line += 3;
-        }
-        break;
-#endif
-#ifdef ENABLE_DRAW32
-     case DRAW32:
-        line += x * 4;
-        while(count--)
-        {
-            *(uint32_t*)line = color8.to32[ *(src++) ];
-            line += 4;
-        }
-        break;
-#endif
-    }
-}
 //
 // D_PageDrawer : draw a patch supposed to fill the screen,
 //                fill the borders with a background pattern (a flat)
@@ -979,42 +935,7 @@ void V_DrawPixels(UINT8 * line, int x, int count, UINT8* src)
 //
 void D_PageDrawer(const char *lumpname)
 {
-    int x, y;
-    UINT8 *src;
-    UINT8 *dest;  // within screen buffer
-
-    // [WDJ] Draw patch for all bpp, bytepp, and padded lines.
-
-    // software mode which uses generally lower resolutions doesn't look
-    // good when the pic is scaled, so it fills space around with a pattern,
-    // and the pic is only scaled to integer multiples (x2, x3...)
-    if (rendermode == render_soft)
-    {
-        if ((vid.width > BASEVIDWIDTH) || (vid.height > BASEVIDHEIGHT))
-        {
-            //src = scr_borderflat;
-            dest = screens[0];
-
-            for (y = 0; y < vid.height; y++)
-            {
-                // repeatly draw a 64 pixel wide flat
-                dest = screens[0] + (y * vid.rowbytes);  // within screen buffer
-                for (x = 0; x < vid.width / 64; x++)
-                {
-                    V_DrawPixels( dest, 0, 64, &src[(y & 63) << 6]);
-                    dest += (64 * vid.bpp);
-                }
-                if (vid.width & 63)
-                {
-                    V_DrawPixels( dest, 0, (vid.width & 63), &src[(y & 63) << 6]);
-                }
-            }
-        }
-    }
-    else
-    {
-        V_DrawScaledPatch(0, 0, 0, W_CachePatchName(lumpname, PU_PATCH));
-    }
+    V_DrawScaledPatch(0, 0, 0, W_CachePatchName(lumpname, PU_PATCH));
 }
 
 //
