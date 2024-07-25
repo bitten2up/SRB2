@@ -475,6 +475,9 @@ UINT8 M_MapLocked(INT32 mapnum, gamedata_t *data)
 		// that's better than making dedicated server's lives hell.
 		return false;
 	}
+	
+	if (cv_debug || devparm)
+		return false; // Unlock every level when in devmode.
 
 	if (!mapheaderinfo[mapnum-1] || mapheaderinfo[mapnum-1]->unlockrequired < 0)
 	{
@@ -491,6 +494,12 @@ UINT8 M_MapLocked(INT32 mapnum, gamedata_t *data)
 
 UINT8 M_CampaignWarpIsCheat(INT32 gt, INT32 mapnum, gamedata_t *data)
 {
+	if (dedicated)
+	{
+		// See M_MapLocked; don't make dedicated servers annoying.
+		return false;
+	}
+
 	if (M_MapLocked(mapnum, data) == true)
 	{
 		// Warping to locked maps is definitely always a cheat
@@ -509,7 +518,7 @@ UINT8 M_CampaignWarpIsCheat(INT32 gt, INT32 mapnum, gamedata_t *data)
 		return true;
 	}
 
-	if (mapheaderinfo[mapnum-1]->menuflags & LF2_HIDEINMENU)
+	if (!mapheaderinfo[mapnum-1] || mapheaderinfo[mapnum-1]->menuflags & LF2_HIDEINMENU)
 	{
 		// You're never allowed to warp to this level.
 		return true;
