@@ -873,7 +873,7 @@ void F_IntroTicker(void)
 				F_RunWipe(99,true);
 			}
 
-			S_ChangeMusicInternal("_intro", false);
+			S_ChangeMusicInternal("INTRO", false);
 		}
 		else if (intro_scenenum == 10)
 		{
@@ -952,7 +952,7 @@ void F_IntroTicker(void)
 	{
 		if (intro_scenenum == 0 && intro_curtime == 2*TICRATE-19)
 		{
-			S_ChangeMusicInternal("_stjr", false);
+			S_ChangeMusicInternal("INTRO", false);
 
 			wipestyleflags = WSF_FADEIN;
 			F_WipeStartScreen();
@@ -2405,7 +2405,7 @@ void F_StartTitleScreen(void)
 	if (menupres[MN_MAIN].musname[0])
 		S_ChangeMusic(menupres[MN_MAIN].musname, menupres[MN_MAIN].mustrack, menupres[MN_MAIN].muslooping);
 	else
-		S_ChangeMusicInternal("_title", looptitle);
+		S_ChangeMusicInternal("INTRO", looptitle);
 
 	if (gamestate != GS_TITLESCREEN && gamestate != GS_WAITINGPLAYERS)
 	{

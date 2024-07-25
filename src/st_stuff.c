@@ -383,7 +383,7 @@ void ST_LoadFaceGraphics(INT32 skinnum)
 			superprefix[skinnum] = faceprefix[skinnum]; // not manually freed, okay to set to same pointer
 	}
 	else
-		faceprefix[skinnum] = superprefix[skinnum] = W_CachePatchName("MISSING", PU_HUDGFX); // ditto
+		faceprefix[skinnum] = superprefix[skinnum] = W_CachePatchName("STFB3", PU_HUDGFX); // ditto
 }
 
 void ST_ReloadSkinFaceGraphics(void)

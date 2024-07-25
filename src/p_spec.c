@@ -166,6 +166,9 @@ static boolean P_FindFlatForAnimation(anim_t *anim, animdef_t *animdef)
   */
 void P_InitPicAnims(void)
 {
+	// bitten note: currently commented out
+	return;
+
 	// Init animation
 	INT32 w; // WAD
 	size_t i;

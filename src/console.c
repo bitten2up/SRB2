@@ -1733,7 +1733,7 @@ static void CON_DrawBackpic(void)
 		piclump = W_CheckNumForPatchName("CONSBACK");
 
 	if (piclump == LUMPERROR)
-		piclump = W_GetNumForPatchName("MISSING");
+		piclump = W_GetNumForPatchName("STFB3");
 
 	// Cache the patch.
 	con_backpic = W_CachePatchNum(piclump, PU_PATCH);

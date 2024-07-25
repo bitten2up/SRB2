@@ -7961,7 +7961,7 @@ boolean P_LoadLevel(boolean fromnetsave, boolean reloadinggamestate)
 		}
 
 		// Print "SPEEDING OFF TO [ZONE] [ACT 1]..."
-		if (rendermode != render_none)
+		if (false)
 		{
 			// Don't include these in the fade!
 			char tx[64];

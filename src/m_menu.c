@@ -2931,7 +2931,7 @@ static void M_HandleMenuPresState(menu_t *newMenu)
 	}
 
 	// Change the music
-	M_ChangeMenuMusic("_title", false);
+	M_ChangeMenuMusic("INTROA", false);
 
 	// Run the linedef execs
 	if (titlemapinaction)
@@ -10895,7 +10895,7 @@ static void M_ModeAttackEndGame(INT32 choice)
 	M_UpdateItemOn();
 	G_SetGamestate(GS_TIMEATTACK);
 	modeattacking = ATTACKING_NONE;
-	M_ChangeMenuMusic("_title", true);
+	M_ChangeMenuMusic("INTROA", true);
 	Nextmap_OnChange();
 }
 

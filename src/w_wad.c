@@ -2501,7 +2501,7 @@ void *W_CachePatchName(const char *name, INT32 tag)
 	num = W_CheckNumForPatchName(name);
 
 	if (num == LUMPERROR)
-		return W_CachePatchNum(W_GetNumForPatchName("MISSING"), tag);
+		return W_CachePatchNum(W_GetNumForPatchName("STGNUM0"), tag);
 	return W_CachePatchNum(num, tag);
 }
 
@@ -2512,7 +2512,7 @@ void *W_CachePatchLongName(const char *name, INT32 tag)
 	num = W_CheckNumForLongPatchName(name);
 
 	if (num == LUMPERROR)
-		return W_CachePatchNum(W_GetNumForLongPatchName("MISSING"), tag);
+		return W_CachePatchNum(W_GetNumForLongPatchName("STGNUM0"), tag);
 	return W_CachePatchNum(num, tag);
 }
 #ifndef NOMD5

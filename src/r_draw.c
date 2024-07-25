@@ -146,6 +146,9 @@ CV_PossibleValue_t Color_cons_t[MAXSKINCOLORS+1];
 */
 void R_InitTranslucencyTables(void)
 {
+	// bitten note: currently commented out
+	return;
+
 	// Load here the transparency lookup tables 'TRANSx0'
 	transtables = Z_MallocAlign(NUMTRANSTABLES*0x10000, PU_STATIC,
 		NULL, 16);

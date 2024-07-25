@@ -1927,6 +1927,7 @@ UINT8 *V_GetStringColormap(INT32 colorflags)
 //
 void V_DrawFontCharacter(INT32 x, INT32 y, INT32 c, boolean lowercaseallowed, fixed_t scale, UINT8 *colormap, fontdef_t font)
 {
+	lowercaseallowed = false;
 	INT32 w, flags;
 	const UINT8 *color = colormap ? colormap : V_GetStringColormap(c);
 
