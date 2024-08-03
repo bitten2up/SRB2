@@ -154,8 +154,11 @@ typedef int32_t boolean;
 #define boolean BOOL
 #endif
 #ifdef __3DS__
+#include <stdbool.h>
 #undef true
 #undef false
+#define __BYTEBOOL__
+#define boolean bool
 #endif
 
 #ifndef __cplusplus

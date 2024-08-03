@@ -1305,6 +1305,7 @@ void HWR_GetFadeMask(lumpnum_t fademasklumpnum)
 {
 	patch_t *patch = HWR_GetCachedGLPatch(fademasklumpnum);
 	GLMipmap_t *grmip = ((GLPatch_t *)Patch_AllocateHardwarePatch(patch))->mipmap;
+
 	if (!grmip->downloaded && !grmip->data)
 		HWR_CacheFadeMask(grmip, fademasklumpnum);
 

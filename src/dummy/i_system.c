@@ -1,23 +1,38 @@
-#include "../doomdef.h"
-#include "../doomtype.h"
-#include "../i_system.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
+#include "../doomdef.h"
+#include "../doomstat.h"
+#include "../d_main.h"
+#include "../m_menu.h"
+#include "../i_system.h"
+#include "../i_joy.h"
+
+#ifdef __3DS__
+#include <3ds.h>
+#endif
 FILE *logstream = NULL;
 
 UINT8 graphics_started = 0;
 
 UINT8 keyboard_started = 0;
 
+static INT64 start_time; // as microseconds since the epoch
+
 size_t I_GetFreeMem(size_t *total)
 {
-	*total = 0;
-	return 0;
+	*total = 178 * 1024 * 1024;
+
+	return linearSpaceFree() + vramSpaceFree();
 }
 
 void I_Sleep(UINT32 ms)
 {
 	(void)ms;
 }
+
 
 precise_t I_GetPreciseTime(void)
 {
@@ -31,7 +46,10 @@ UINT64 I_GetPrecisePrecision(void)
 
 void I_GetEvent(void){}
 
-void I_OsPolling(void){}
+void I_OsPolling(void)
+{
+	I_GetEvent();
+}
 
 ticcmd_t *I_BaseTiccmd(void)
 {
@@ -45,14 +63,30 @@ ticcmd_t *I_BaseTiccmd2(void)
 
 void I_Quit(void)
 {
+	printf("EXIT!\n");
+	//I_ShutdownDigMusic();
+	I_ShutdownGraphics();
 	exit(0);
 }
 
-void I_Error(const char *error, ...)
+void I_Error(const char *fmt, ...)
 {
-	(void)error;
+#if 1
+	char txt[8192];
+	va_list argptr;
+
+	va_start(argptr, fmt);
+	vsprintf(txt, fmt, argptr);
+	va_end(argptr);
+
+	fprintf(stderr, "%s", txt);
+
 	exit(-1);
+#else
+	(void)fmt;
+#endif
 }
+
 
 void I_Tactile(FFType Type, const JoyFF_t *Effect)
 {
@@ -70,7 +104,11 @@ void I_JoyScale(void){}
 
 void I_JoyScale2(void){}
 
-void I_InitJoystick(void){}
+void I_InitJoystick(void)
+{
+	Joystick.bGamepadStyle = false;
+	Joystick2.bGamepadStyle = false;
+}
 
 void I_InitJoystick2(void){}
 
@@ -95,7 +133,14 @@ void I_UpdateMumble(const mobj_t *mobj, const listener_t listener)
 
 void I_OutputMsg(const char *error, ...)
 {
-	(void)error;
+	char tmp[512];
+
+	va_list args;
+	va_start(args, error);
+	vsnprintf(tmp, sizeof tmp, error, args);
+	va_end(args);
+
+	printf("%s", tmp);
 }
 
 void I_StartupMouse(void){}
@@ -107,7 +152,10 @@ INT32 I_GetKey(void)
 	return 0;
 }
 
-void I_StartupTimer(void){}
+void I_StartupTimer(void)
+{
+	start_time = osGetTime();
+}
 
 void I_AddExitFunc(void (*func)())
 {
@@ -119,9 +167,81 @@ void I_RemoveExitFunc(void (*func)())
 	(void)func;
 }
 
+static char exePath[0x400];
+static bool wadAtExePath;
+
+static bool parsePath(const char *path)
+{
+	if (strncmp(path, "sdmc:", 5) != 0)
+		return false;
+
+	const char *end = path + strlen(path);
+
+	while (end != path)
+	{
+		if (*end == '/')
+			break;
+		end--;
+	}
+
+	if (*end == '/')
+	{
+		if (end - path >= 0x400)
+			return false;
+
+		memcpy(exePath, path, end - path);
+		exePath[end - path] = '\0';
+	}
+	else return false;
+
+	CONS_Printf("exePath: %s\n", exePath);
+
+	return true;
+}
+
 INT32 I_StartupSystem(void)
 {
-	return -1;
+	extern INT32 myargc;
+	extern char **myargv;
+	if (PTMSYSM_CheckNew3DS())
+	{
+		osSetSpeedupEnable(true);
+		// enable fast clock + L2 cache on new3ds
+		PTMSYSM_ConfigureNew3DSCPU(3);
+		osSetSpeedupEnable(true);
+	}
+	gfxInitDefault();
+	consoleInit(GFX_BOTTOM, NULL);
+
+		/* Figure out where srb2 is stored */
+	if (myargc >= 1 && parsePath(myargv[0]))
+	{
+		if (chdir(exePath) != 0)
+			printf("chdir#1 failed!\n");
+
+		FILE *f;
+		if ((f = fopen("srb2.srb", "rb")) != NULL)
+        	{
+        		wadAtExePath = true;
+        		fclose(f);
+        		return 0;
+        	}
+
+		/* Could not open file */
+	}
+	else
+	{
+		// CIA version
+		chdir("sdmc:/3ds/srb2");
+		strcpy(exePath, "sdmc:/3ds/srb2");
+		wadAtExePath = true;
+		return 0;
+	}
+
+	if (chdir("sdmc:/") != 0)
+		printf("chdir#2 failed!\n");
+
+	return 0;
 }
 
 void I_ShutdownSystem(void){}
@@ -133,14 +253,19 @@ void I_GetDiskFreeSpace(INT64* freespace)
 
 char *I_GetUserName(void)
 {
+	printf("I_GetUserName()\n");
 	return NULL;
 }
 
 INT32 I_mkdir(const char *dirname, INT32 unixright)
 {
-	(void)dirname;
-	(void)unixright;
-	return -1;
+	if (mkdir(dirname, unixright) != 0)
+	{
+		printf("I_mkdir() failed!\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 const CPUInfoFlags *I_CPUInfo(void)
@@ -150,9 +275,13 @@ const CPUInfoFlags *I_CPUInfo(void)
 
 const char *I_LocateWad(void)
 {
-	return NULL;
-}
+	if (wadAtExePath)
+	{
+		return exePath;
+	}
 
+	return "/";
+}
 void I_GetJoystickEvents(void){}
 
 void I_GetJoystick2Events(void){}

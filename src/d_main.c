@@ -905,6 +905,7 @@ void D_SRB2Loop(void)
 		{
 			INT64 elapsed = (INT64)(finishprecise - enterprecise);
 
+#if 0
 			// in the case of "match refresh rate" + vsync, don't sleep at all
 			const boolean vsync_with_match_refresh = cv_vidwait.value && cv_fpscap.value == 0;
 
@@ -912,6 +913,7 @@ void D_SRB2Loop(void)
 			{
 				I_SleepDuration(capbudget - (finishprecise - enterprecise));
 			}
+#endif
 		}
 		// Capture the time once more to get the real delta time.
 		finishprecise = I_GetPreciseTime();

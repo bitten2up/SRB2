@@ -679,14 +679,14 @@ extern int
 //#define SAVEGAME_OTHERVERSIONS
 
 ///	Shuffle's incomplete OpenGL sorting code.
-#define SHUFFLE // This has nothing to do with sorting, why was it disabled?
+//#define SHUFFLE // This has nothing to do with sorting, why was it disabled?
 
 ///	Allow the use of the SOC RESETINFO command.
 ///	\note	Builds that are tight on memory should disable this.
 ///	    	This stops the game from storing backups of the states, sprites, and mobjinfo tables.
 ///	    	Though this info is compressed under normal circumstances, it's still a lot of extra
 ///	    	memory that never gets touched.
-//#define ALLOW_RESETDATA
+#define ALLOW_RESETDATA
 
 /// Experimental tweaks to analog mode. (Needs a lot of work before it's ready for primetime.)
 //#define REDSANALOG
@@ -702,11 +702,11 @@ extern int
 #define NEWCLIP
 
 /// OpenGL shaders
-#define GL_SHADERS
+//#define GL_SHADERS
 
 /// Handle touching sector specials in P_PlayerAfterThink instead of P_PlayerThink.
 /// \note   Required for proper collision with moving sloped surfaces that have sector specials on them.
-#define SECTORSPECIALSAFTERTHINK
+//#define SECTORSPECIALSAFTERTHINK
 
 /// Sprite rotation
 #define ROTSPRITE

@@ -1,0 +1,11 @@
+i_net.c
+i_system.c
+i_main.c
+i_video.c
+i_sound.c
+nds_utils.c
+r_nds3d.c
+r_queue.c
+r_texcache.c
+hw_vcache.c
+vshader.v.pica

@@ -91,6 +91,7 @@ void I_UpdateTime(fixed_t timescale)
 
 void I_SleepDuration(precise_t duration)
 {
+	return; //god dammit
 	UINT64 precision = I_GetPrecisePrecision();
 	INT32 sleepvalue = cv_sleep.value;
 	UINT64 delaygranularity;

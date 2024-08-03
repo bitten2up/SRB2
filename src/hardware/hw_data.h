@@ -20,6 +20,7 @@
 #endif
 
 #include "../doomdef.h"
+#include "hw_glide.h"
 #include "../screen.h"
 
 
@@ -55,6 +56,7 @@ struct GLMipmap_s
 {
 	// for UpdateTexture
 	GLTextureFormat_t     format;
+	GrTexInfo       grInfo;
 	void                 *data;
 
 	UINT32                flags;

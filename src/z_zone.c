@@ -192,6 +192,10 @@ static void *xm(size_t size)
 
 		if (p == NULL)
 		{
+			#if defined (_NDS) | defined (_PSP)
+			// Temporary-ish debugging measure
+			Command_Memfree_f();
+			#endif
 			I_Error("Out of memory allocating %s bytes", sizeu1(size));
 		}
 	}
@@ -394,7 +398,7 @@ void Z_FreeTags(INT32 lowtag, INT32 hightag)
 {
 	memblock_t *block, *next;
 
-	Z_CheckHeap(420);
+	//Z_CheckHeap(420);	XXX_SLOW
 	for (block = head.next; block != &head; block = next)
 	{
 		next = block->next; // get link before freeing

@@ -1,5 +1,5 @@
-makedir:=$(makedir)/Dummy
+makedir:=$(makedir)/nds
 
-sources+=$(call List,dummy/Sourcefile)
+sources+=$(call List,nds/Sourcefile)
 
-NOHW=1
+#NOHW=1
