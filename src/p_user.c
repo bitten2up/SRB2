@@ -5396,6 +5396,11 @@ static void P_DoJumpStuff(player_t *player, ticcmd_t *cmd, boolean spinshieldhac
 	// ABILITIES!//
 	///////////////
 
+	if (cmd->buttons & BT_FIRENORMAL)
+  {
+    P_UseLines(player);
+  }
+
 	if (cmd->buttons & BT_JUMP && !player->exiting && !P_PlayerInPain(player))
 	{
 		if (LUA_HookPlayer(player, HOOK(JumpSpecial)))

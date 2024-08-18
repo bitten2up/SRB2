@@ -822,6 +822,7 @@ sfxinfo_t S_sfx[NUMSFX] =
   {"kc6c",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
   {"kc6d",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
   {"kc6e",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
+  {"noway",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, "No Way"},
 
   // skin sounds free slots to add sounds at run time (Boris HACK!!!)
   // initialized to NULL

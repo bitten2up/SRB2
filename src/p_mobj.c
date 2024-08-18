@@ -1359,6 +1359,7 @@ fixed_t P_GetMobjGravity(mobj_t *mo)
 		if (mo->player->climbing || (mo->player->powers[pw_carry] == CR_NIGHTSMODE))
 			gravityadd = 0;
 
+		#if 0
 		if (!(mo->flags2 & MF2_OBJECTFLIP) != !(mo->player->powers[pw_gravityboots])) // negated to turn numeric into bool - would be double negated, but not needed if both would be
 		{
 			gravityadd = -gravityadd;
@@ -1366,6 +1367,7 @@ fixed_t P_GetMobjGravity(mobj_t *mo)
 		}
 		if (wasflip == !(mo->eflags & MFE_VERTICALFLIP)) // note!! == ! is not equivalent to != here - turns numeric into bool this way
 			P_PlayerFlip(mo);
+		#endif
 	}
 	else
 	{

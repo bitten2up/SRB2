@@ -579,6 +579,7 @@ void R_DrawTranslucentColumnClamped_8(void)
 // by not using those variables at all.
 void R_DrawDropShadowColumn_8(void)
 {
+	return;
 	register INT32 count;
 	register UINT8 *dest;
 
@@ -611,6 +612,7 @@ void R_DrawDropShadowColumn_8(void)
 */
 void R_DrawTranslatedTranslucentColumn_8(void)
 {
+	return;
 	register INT32 count;
 	register UINT8 *dest;
 	register fixed_t frac, fracstep;

@@ -1617,6 +1617,7 @@ static void HU_DrawChat_Old(void)
 
 static inline void HU_DrawCrosshairs(void)
 {
+	return;
 	INT32 cross1 = cv_crosshair.value & 3;
 	INT32 cross2 = cv_crosshair2.value & 3;
 

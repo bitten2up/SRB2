@@ -48,6 +48,12 @@ boolean D_IsPathAllowed(const char *path);
 boolean D_CheckPathAllowed(const char *path, const char *why);
 
 //
+// DRAW A FLAT
+//
+
+#define D_PageDrawer(lumpname) V_DrawScaledPatch(0, 0, 0, W_CachePatchName(lumpname, PU_PATCH))
+
+//
 // BASE LEVEL
 //
 void D_AdvanceDemo(void);

@@ -870,6 +870,7 @@ typedef enum
 	sfx_kc6c,
 	sfx_kc6d,
 	sfx_kc6e,
+	sfx_noway,
 
 	// free slots for S_AddSoundFx() at run-time --------------------
 	sfx_freeslot0,

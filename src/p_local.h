@@ -426,6 +426,7 @@ void P_SlideMove(mobj_t *mo);
 void P_BounceMove(mobj_t *mo);
 boolean P_CheckSight(mobj_t *t1, mobj_t *t2);
 void P_CheckHoopPosition(mobj_t *hoopthing, fixed_t x, fixed_t y, fixed_t z, fixed_t radius);
+void P_UseLines (player_t* player);
 
 boolean P_CheckSector(sector_t *sector, boolean crunch);
 

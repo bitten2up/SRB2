@@ -153,8 +153,6 @@ INT32 eventhead, eventtail;
 
 boolean dedicated = false;
 
-void D_PageDrawer(const char *lumpname);
-
 //
 // D_PostEvent
 // Called by the I/O functions when input is detected
@@ -924,20 +922,6 @@ void D_SRB2Loop(void)
 	}
 }
 
-// =========================================================================
-//  Demo
-// =========================================================================
-
-//
-// D_PageDrawer : draw a patch supposed to fill the screen,
-//                fill the borders with a background pattern (a flat)
-//                if the patch doesn't fit all the screen.
-//
-void D_PageDrawer(const char *lumpname)
-{
-    V_DrawScaledPatch(0, 0, 0, W_CachePatchName(lumpname, PU_PATCH));
-}
-
 //
 // D_AdvanceDemo
 // Called after each demo or intro demosequence finishes
@@ -1191,6 +1175,8 @@ static void IdentifyVersion(void)
 
 	// if you change the ordering of this or add/remove a file, be sure to update the md5
 	// checking in D_SRB2Main
+		//D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "zones.pk3"));
+
 
 	// Add the maps
 	//D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "zones.pk3"));

@@ -1698,7 +1698,6 @@ static void R_ProjectBoundingBox(mobj_t *thing, vissprite_t *vis)
 //
 static void R_ProjectSprite(mobj_t *thing)
 {
-	return;
 	mobj_t *oldthing = thing;
 	fixed_t tr_x, tr_y;
 	fixed_t tx, tz;
@@ -1841,6 +1840,7 @@ static void R_ProjectSprite(mobj_t *thing)
 	}
 	else
 	{
+		return;
 		sprdef = &sprites[thing->sprite];
 #ifdef ROTSPRITE
 		sprinfo = &spriteinfo[thing->sprite];

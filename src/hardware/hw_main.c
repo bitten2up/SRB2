@@ -4463,6 +4463,7 @@ static void HWR_ProjectSprite(mobj_t *thing)
 			ang = InvAngle(ang);
 	}
 
+	#if 0
 	if (sprframe->rotate == SRF_SINGLE)
 	{
 		// use single rotation for all views
@@ -4495,6 +4496,7 @@ static void HWR_ProjectSprite(mobj_t *thing)
 		if (papersprite && ang < ANGLE_180)
 			flip ^= (1<<rot);
 	}
+	#endif
 
 	if (thing->skin && ((skin_t *)thing->skin)->flags & SF_HIRES)
 		this_scale *= FIXED_TO_FLOAT(((skin_t *)thing->skin)->highresscale);
@@ -4727,7 +4729,7 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	vis->tracertz = tracertz;
 
 	vis->renderflags = thing->renderflags;
-	vis->rotateflags = sprframe->rotate;
+	//vis->rotateflags = sprframe->rotate;
 
 	vis->shadowheight = shadowheight;
 	vis->shadowscale = shadowscale;
@@ -4750,7 +4752,7 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	}
 	else
 #endif
-		vis->gpatch = (patch_t *)W_CachePatchNum(sprframe->lumppat[rot], PU_SPRITE);
+		//vis->gpatch = (patch_t *)W_CachePatchNum(sprframe->lumppat[rot], PU_SPRITE);
 
 	vis->mobj = thing;
 
@@ -5558,7 +5560,7 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	HWR_SortVisSprites();
 	PS_STOP_TIMING(ps_hw_spritesorttime);
 	PS_START_TIMING(ps_hw_spritedrawtime);
-	HWR_DrawSprites();
+	//HWR_DrawSprites();
 	PS_STOP_TIMING(ps_hw_spritedrawtime);
 
 #ifdef NEWCORONAS

@@ -4233,6 +4233,75 @@ void P_RadiusAttack(mobj_t *spot, mobj_t *source, fixed_t damagedist, UINT8 dama
 }
 
 //
+// USE LINES
+//
+mobj_t*         usething;
+
+static boolean PTR_UseTraverse (intercept_t* in)
+{
+#if 0
+    line_t *  ld = in->d.line;
+    int       side;
+
+    tmthing = NULL;
+    if( ! ld->special )
+    {
+        P_LineOpening( ld, usething );
+        if (openrange <= 0)
+        {
+                S_StartSound(usething, sfx_noway);
+
+            // can't use through a wall
+            return false;
+        }
+        // not a special line, but keep checking
+        return true ;
+    }
+
+    // Special line
+    side = 0;
+    if( P_PointOnLineSide( usething->x, usething->y, ld ) == 1 )
+        side = 1;
+
+    if( P_UseSpecialLine( usething, ld, side ) )
+    {
+        // [WDJ] Attempt to track player that triggers voodoo doll
+        //if((voodoo_mode >= VM_target) && (usething->player))
+        {
+            if( usething->player->mo == usething )
+            {
+                // Real player pushed a switch
+                spechit_player = usething->player;
+            }
+        }
+    }
+
+    // found a special line, stop
+#endif
+    return false;
+}
+//
+// P_UseLines
+// Looks for special lines in front of the player to activate.
+//
+void P_UseLines (player_t* player)
+{
+    INT16         angf;
+    fixed_t     x1, y1, x2, y2;
+
+    //usething = player->mo;
+
+    angf = player->mo->angle>>ANGLETOFINESHIFT;
+
+    x1 = player->mo->x;
+    y1 = player->mo->y;
+    x2 = x1 + (USERANGE>>FRACBITS)*finecosine[angf];
+    y2 = y1 + (USERANGE>>FRACBITS)*finesine[angf];
+
+    P_PathTraverse ( x1, y1, x2, y2, PT_ADDLINES, PTR_UseTraverse );
+}
+
+//
 // SECTOR HEIGHT CHANGING
 // After modifying a sectors floor or ceiling height,
 // call this routine to adjust the positions

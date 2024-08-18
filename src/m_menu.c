@@ -3159,6 +3159,8 @@ static boolean noFurtherInput = false;
 
 static void Command_Manual_f(void)
 {
+	D_PageDrawer("HELP");
+	return;
 	if (modeattacking)
 		return;
 	M_StartControlPanel();
@@ -4346,8 +4348,8 @@ static void M_DrawSlider(INT32 x, INT32 y, const consvar_t *cv, boolean ontop)
 			'\x1C' | V_YELLOWMAP, false);
 		V_DrawCharacter(x + 80 + (skullAnimCounter/5), y,
 			'\x1D' | V_YELLOWMAP, false);
-		V_DrawCenteredString(x + 40, y, V_30TRANS,
-			(cv->flags & CV_FLOAT) ? va("%.2f", FIXED_TO_FLOAT(cv->value)) : va("%d", cv->value));
+		//V_DrawCenteredString(x + 40, y, V_30TRANS,
+		//	(cv->flags & CV_FLOAT) ? va("%.2f", FIXED_TO_FLOAT(cv->value)) : va("%d", cv->value));
 	}
 }
 
