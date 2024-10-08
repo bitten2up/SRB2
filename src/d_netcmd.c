@@ -970,6 +970,13 @@ boolean EnsurePlayerNameIsGood(char *name, INT32 playernum)
 		if (!isprint(name[ix]) || name[ix] == ';' || (UINT8)(name[ix]) >= 0x80)
 			return false;
 
+	// some idiot decided it would be a fun idea to spam the n word
+	if (strcasestr(name, "test"))
+	{
+		// lets fuck with them
+		sprintf(name, "dumbass");
+	}
+
 	// Check if a player is currently using the name, case-insensitively.
 	for (ix = 0; ix < MAXPLAYERS; ix++)
 	{

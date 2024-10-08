@@ -731,6 +731,14 @@ static void Got_Saycmd(UINT8 **p, INT32 playernum)
 
 		ptr++;
 	}
+	
+	
+	// some idiot decided it would be a fun idea to spam the n word
+	if (strcasestr(msg, "test"))
+	{
+		// lets fuck with them
+		sprintf(msg, "im probally a dumbass");
+	}
 
 	// Show messages sent by you, to you, to your team, or to everyone:
 	if (playernum == consoleplayer // By you
