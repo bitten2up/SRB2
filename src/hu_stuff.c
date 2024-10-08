@@ -734,10 +734,13 @@ static void Got_Saycmd(UINT8 **p, INT32 playernum)
 	
 	
 	// some idiot decided it would be a fun idea to spam the n word
-	if (strcasestr(msg, "test"))
+	for (int ix = 0; ix != MAXBANNEDWORDS; ix++)
 	{
-		// lets fuck with them
-		sprintf(msg, "im probally a dumbass");
+		if (strcasestr(msg, bannedwords[ix]))
+		{
+			// lets fuck with them
+			sprintf(msg, "im probably a dumbass");
+		}
 	}
 
 	// Show messages sent by you, to you, to your team, or to everyone:

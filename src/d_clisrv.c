@@ -2773,6 +2773,30 @@ static void Ban_Load_File(boolean warning)
 	fclose(f);
 }
 
+char bannedwords[MAXBANNEDWORDS][MAXPLAYERNAME];
+static void Banned_Word_Load_File(boolean warning)
+{
+	FILE *f;
+	char buffer[MAX_WADPATH];
+
+	f = fopen(va("%s"PATHSEP"%s", srb2home, "banned-words.txt"), "r");
+
+	if (!f)
+	{
+		if (warning)
+			CONS_Alert(CONS_WARNING, M_GetText("Could not open banned-words.txt for banned word list\n"));
+		return;
+	}
+
+	for (int i = 0; fgets(buffer, (int)sizeof(buffer), f) || i != MAXBANNEDWORDS; i++)
+	{
+		strtok(buffer, "\n");
+		sprintf(bannedwords[i], "%s", buffer);
+	}
+
+	fclose(f);
+}
+
 static void Command_ReloadBan(void)  //recheck ban.txt
 {
 	Ban_Load_File(true);
@@ -3572,6 +3596,7 @@ void D_ClientServerInit(void)
 	CV_RegisterVar(&cv_dumpconsistency);
 #endif
 	Ban_Load_File(false);
+	Banned_Word_Load_File(true);
 #endif
 
 	gametic = 0;

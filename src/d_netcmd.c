@@ -971,10 +971,13 @@ boolean EnsurePlayerNameIsGood(char *name, INT32 playernum)
 			return false;
 
 	// some idiot decided it would be a fun idea to spam the n word
-	if (strcasestr(name, "test"))
+	for (ix = 0; ix != MAXBANNEDWORDS; ix++)
 	{
-		// lets fuck with them
-		sprintf(name, "dumbass");
+		if (strcasestr(name, bannedwords[ix]))
+		{
+			// lets fuck with them
+			sprintf(name, "dumbass");
+		}
 	}
 
 	// Check if a player is currently using the name, case-insensitively.
