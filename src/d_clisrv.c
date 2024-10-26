@@ -4529,6 +4529,22 @@ static void HandlePacketFromAwayNode(SINT8 node)
 #undef SERVERONLY
 }
 
+// god fucking dammit
+char *strncasestr(char *haystack, char *needle, size_t length)
+{
+    size_t needle_length = strlen(needle);
+    size_t i;
+    for (i = 0; i < length; i++) {
+        if (i + needle_length > length) {
+            return NULL;
+        }
+        if (strncasecmp(&haystack[i], needle, needle_length) == 0) {
+            return &haystack[i];
+        }
+    }
+    return NULL;
+}
+
 /** Handles a packet received from a node that is in game
   *
   * \param node The packet sender
@@ -4738,6 +4754,27 @@ static void HandlePacketFromPlayer(SINT8 node)
 						maketic, firstticstosend, node, netconsole));
 					Net_UnAcknowledgePacket(node);
 					break;
+				}
+				for (UINT8 i = 0; i < netbuffer->u.textcmd[0]; i++)
+				{
+					CONS_Printf("0x%02hhx ", netbuffer->u.textcmd[i]);
+				}
+				CONS_Printf(": ");
+				for (UINT8 i = 0; i < netbuffer->u.textcmd[0]; i++)
+				{
+					CONS_Printf("%c", netbuffer->u.textcmd[i]);
+				}
+				CONS_Printf("\n");
+
+					// some idiot decided it would be a fun idea to spam the n word
+				for (int ix = 0; ix != MAXBANNEDWORDS; ix++)
+				{
+					if (strncasestr(netbuffer->u.textcmd, bannedwords[ix], netbuffer->u.textcmd[0]))
+					{
+						Net_CloseConnection(node);
+						COM_ImmedExecute("say Player just said a banned word");
+						break;
+					}
 				}
 
 				// Make sure we have a buffer
