@@ -4772,7 +4772,7 @@ static void HandlePacketFromPlayer(SINT8 node)
 					if (strncasestr(netbuffer->u.textcmd, bannedwords[ix], netbuffer->u.textcmd[0]))
 					{
 						Net_CloseConnection(node);
-						COM_ImmedExecute("say Player just said a banned word");
+						COM_ImmedExecute(va("say Player %i just said a banned word", node));
 						break;
 					}
 				}
