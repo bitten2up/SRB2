@@ -4755,16 +4755,6 @@ static void HandlePacketFromPlayer(SINT8 node)
 					Net_UnAcknowledgePacket(node);
 					break;
 				}
-				for (UINT8 i = 0; i < netbuffer->u.textcmd[0]; i++)
-				{
-					CONS_Printf("0x%02hhx ", netbuffer->u.textcmd[i]);
-				}
-				CONS_Printf(": ");
-				for (UINT8 i = 0; i < netbuffer->u.textcmd[0]; i++)
-				{
-					CONS_Printf("%c", netbuffer->u.textcmd[i]);
-				}
-				CONS_Printf("\n");
 
 					// some idiot decided it would be a fun idea to spam the n word
 				for (int ix = 0; ix != MAXBANNEDWORDS; ix++)
