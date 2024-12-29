@@ -332,6 +332,14 @@ static PFNglDepthMask pglDepthMask;
 typedef void (APIENTRY * PFNglDepthRange) (GLclampd near_val, GLclampd far_val);
 static PFNglDepthRange pglDepthRange;
 
+/* Stencil buffer */ 
+typedef void (APIENTRY * PFNglStencilMask) (GLuint mask);
+static PFNglStencilMask pglStencilMask;
+typedef void (APIENTRY * PFNglStencilFunc) (GLenum func, GLint ref, GLuint mask);
+static PFNglStencilFunc pglStencilFunc;
+typedef void (APIENTRY * PFNglStencilOp) (GLenum sfail, GLenum dpfail, GLenum dppass);
+static PFNglStencilOp pglStencilOp;
+
 /* Transformation */
 typedef void (APIENTRY * PFNglMatrixMode) (GLenum mode);
 static PFNglMatrixMode pglMatrixMode;
@@ -553,6 +561,10 @@ boolean SetupGLfunc(void)
 
 	GETOPENGLFUNC(pglCopyTexImage2D, glCopyTexImage2D)
 	GETOPENGLFUNC(pglCopyTexSubImage2D, glCopyTexSubImage2D)
+
+	GETOPENGLFUNC(pglStencilMask, glStencilMask)
+	GETOPENGLFUNC(pglStencilFunc, glStencilFunc)
+	GETOPENGLFUNC(pglStencilOp, glStencilOp)
 
 #undef GETOPENGLFUNC
 
@@ -2756,9 +2768,23 @@ static void DrawModelEx(model_t *model, INT32 frameIndex, float duration, float 
 // -----------------+
 // HWRAPI DrawModel : Draw a model
 // -----------------+
-EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface)
-{
+EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface) {
+	// bitten improve this more
+	pglEnable(GL_DEPTH_TEST);
+	pglEnable(GL_STENCIL_TEST);
+	pglStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+	pglStencilFunc(GL_ALWAYS, 1, 0xFF);
+	pglStencilMask(0xFF);
+	FSurfaceInfo outline;
+	outline.PolyColor.s.alpha = outline.PolyColor.s.red = outline.PolyColor.s.blue = outline.PolyColor.s.green = (float)(255.0);
+
+	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1, vscale*1.1, flipped, hflipped, &outline);
+	pglDisable(GL_DEPTH_TEST);
+
+	pglStencilMask(0x00);
 	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale, vscale, flipped, hflipped, Surface);
+	pglDisable(GL_STENCIL_TEST);
+	pglEnable(GL_DEPTH_TEST);
 }
 
 // -----------------+
