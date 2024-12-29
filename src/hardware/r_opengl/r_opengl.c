@@ -2776,7 +2776,8 @@ EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration,
 	pglStencilFunc(GL_ALWAYS, 1, 0xFF);
 	pglStencilMask(0xFF);
 	FSurfaceInfo outline = {0};
-	outline.PolyColor.s.alpha = outline.PolyColor.s.blue = outline.PolyColor.s.green = 0xFF;
+	outline.PolyColor.s.alpha = Surface->PolyColor.s.alpha;
+	outline.PolyColor.s.blue = outline.PolyColor.s.green = 0xFF;
 
 	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1, vscale*1.1, flipped, hflipped, &outline);
 	pglDisable(GL_DEPTH_TEST);
