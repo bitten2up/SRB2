@@ -2772,7 +2772,7 @@ static void DrawModelEx(model_t *model, INT32 frameIndex, float duration, float 
 EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface) {
 	// bitten improve this more
 	pglEnable(GL_STENCIL_TEST);
-	pglStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+	pglStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 	pglStencilFunc(GL_ALWAYS, 1, 0xFF);
 	pglStencilMask(0xFF);
 	FSurfaceInfo outline = {0};
@@ -2781,6 +2781,7 @@ EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration,
 
 	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1, vscale*1.1, flipped, hflipped, &outline, true);
 
+	pglStencilFunc(GL_NOTEQUAL, 1, 0xFF);
 	pglStencilMask(0x00);
 	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale, vscale, flipped, hflipped, Surface, false);
 	pglDisable(GL_STENCIL_TEST);
