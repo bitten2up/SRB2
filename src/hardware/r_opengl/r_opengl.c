@@ -339,6 +339,8 @@ typedef void (APIENTRY * PFNglStencilFunc) (GLenum func, GLint ref, GLuint mask)
 static PFNglStencilFunc pglStencilFunc;
 typedef void (APIENTRY * PFNglStencilOp) (GLenum sfail, GLenum dpfail, GLenum dppass);
 static PFNglStencilOp pglStencilOp;
+typedef void (APIENTRY * PFNglClearStencil) (GLint s);
+static PFNglClearStencil pglClearStencil;
 
 /* Transformation */
 typedef void (APIENTRY * PFNglMatrixMode) (GLenum mode);
@@ -565,6 +567,7 @@ boolean SetupGLfunc(void)
 	GETOPENGLFUNC(pglStencilMask, glStencilMask)
 	GETOPENGLFUNC(pglStencilFunc, glStencilFunc)
 	GETOPENGLFUNC(pglStencilOp, glStencilOp)
+	GETOPENGLFUNC(pglClearStencil, glClearStencil)
 
 #undef GETOPENGLFUNC
 
@@ -2775,9 +2778,18 @@ EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration,
 	pglStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 	pglStencilFunc(GL_ALWAYS, 1, 0xFF);
 	pglStencilMask(0xFF);
-	FSurfaceInfo outline = {0};
+	pglClearStencil(0);
+	pglClear(GL_STENCIL_BUFFER_BIT);
+	FSurfaceInfo outline = {
+    .PolyFlags = 0,
+    .PolyColor = { .rgba = 0 },
+    .TintColor = { .rgba = 0 },
+    .FadeColor = { .rgba = 0 },
+    .LightInfo = { .light_level = 0, .fade_start = 0, .fade_end = 0 }
+	};
 	outline.PolyColor.s.alpha = Surface->PolyColor.s.alpha;
-	outline.PolyColor.s.blue = outline.PolyColor.s.green = 0xFF;
+	outline.FadeColor.s.blue = 0xFF;
+	outline.FadeColor.s.green = 0xFF;
 
 	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1, vscale*1.1, flipped, hflipped, &outline, true);
 
