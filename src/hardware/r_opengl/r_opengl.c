@@ -2477,7 +2477,7 @@ EXPORT void HWRAPI(CreateModelVBOs) (model_t *model)
 
 #define BUFFER_OFFSET(i) ((void*)(i))
 
-static void DrawModelEx(model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface, boolean outline)
+static void DrawModelEx(model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface)
 {
 	static GLRGBAFloat poly = {0,0,0,0};
 	static GLRGBAFloat tint = {0,0,0,0};
@@ -2583,8 +2583,7 @@ static void DrawModelEx(model_t *model, INT32 frameIndex, float duration, float 
 		lt_downloaded = Surface->LightTableId;
 	}
 
-	if (!outline)
-		SetBlend(flags);
+	SetBlend(flags);
 	Shader_SetUniforms(Surface, &poly, &tint, &fade);
 
 	pglEnable(GL_CULL_FACE);
@@ -2773,32 +2772,35 @@ static void DrawModelEx(model_t *model, INT32 frameIndex, float duration, float 
 // HWRAPI DrawModel : Draw a model
 // -----------------+
 EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface) {
-	// bitten improve this more
+
 	pglEnable(GL_STENCIL_TEST);
 	pglStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 	pglStencilFunc(GL_ALWAYS, 1, 0xFF);
 	pglStencilMask(0xFF);
-	pglClearStencil(0);
 	pglClear(GL_STENCIL_BUFFER_BIT);
-	FSurfaceInfo outline = {
-    .PolyFlags = 0,
-    .PolyColor = { .rgba = 0 },
-    .TintColor = { .rgba = 0 },
-    .FadeColor = { .rgba = 0 },
-    .LightInfo = { .light_level = 0, .fade_start = 0, .fade_end = 0 }
-	};
-	outline.PolyColor.s.alpha = Surface->PolyColor.s.alpha;
+	FSurfaceInfo outline;
+
+	//memcpy(&outline, Surface, sizeof(FSurfaceInfo));
+	outline.PolyColor.rgba = 0x00;
+	outline.PolyColor.s.alpha = 0xff;
+
+	outline.TintColor.rgba = 0x00;
+	outline.TintColor.s.alpha = 0xff;
+
+	outline.FadeColor.s.red = 0x00;
 	outline.FadeColor.s.blue = 0xFF;
 	outline.FadeColor.s.green = 0xFF;
 
-	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1, vscale*1.1, flipped, hflipped, &outline, true);
+	pglDepthMask(GL_FALSE);
+	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1, vscale*1.1, flipped, hflipped, &outline);
 
 	pglStencilFunc(GL_NOTEQUAL, 1, 0xFF);
 	pglStencilMask(0x00);
-	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale, vscale, flipped, hflipped, Surface, false);
+	pglDepthMask(GL_TRUE);
+	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale, vscale, flipped, hflipped, Surface);
 	pglDisable(GL_STENCIL_TEST);
+	pglClear(GL_STENCIL_BUFFER_BIT);
 }
-
 // -----------------+
 // SetTransform     :
 // -----------------+
