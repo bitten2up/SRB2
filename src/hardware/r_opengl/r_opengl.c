@@ -2791,13 +2791,13 @@ EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration,
 	outline.FadeColor.s.blue = 0xFF;
 	outline.FadeColor.s.green = 0xFF;
 
-	pglDepthMask(GL_FALSE);
-	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1, vscale*1.1, flipped, hflipped, &outline);
+	pglDepthMask(GL_TRUE);
 
+	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale, vscale, flipped, hflipped, Surface);
 	pglStencilFunc(GL_NOTEQUAL, 1, 0xFF);
 	pglStencilMask(0x00);
-	pglDepthMask(GL_TRUE);
-	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale, vscale, flipped, hflipped, Surface);
+	pglDepthMask(GL_FALSE);
+	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1, vscale*1.1, flipped, hflipped, &outline);
 	pglDisable(GL_STENCIL_TEST);
 	pglClear(GL_STENCIL_BUFFER_BIT);
 }
