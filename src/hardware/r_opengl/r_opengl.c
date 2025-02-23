@@ -2778,7 +2778,7 @@ EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration,
 	pglStencilFunc(GL_ALWAYS, 1, 0xFF);
 	pglStencilMask(0xFF);
 	pglClear(GL_STENCIL_BUFFER_BIT);
-	FSurfaceInfo outline;
+	FSurfaceInfo outline = {0};
 
 	//memcpy(&outline, Surface, sizeof(FSurfaceInfo));
 	outline.PolyColor.rgba = 0x00;
@@ -2790,6 +2790,10 @@ EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration,
 	outline.FadeColor.s.red = 0x00;
 	outline.FadeColor.s.blue = 0xFF;
 	outline.FadeColor.s.green = 0xFF;
+	outline.FadeColor.s.green = 0xFF;
+	outline.PolyFlags = 0xffffffff;
+	outline.PolyFlags ^= PF_Invisible|PF_NoDepthTest;
+	Surface->PolyFlags |= PF_Occlude;
 
 	pglDepthMask(GL_TRUE);
 
@@ -2799,7 +2803,6 @@ EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration,
 	pglDepthMask(GL_FALSE);
 	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1, vscale*1.1, flipped, hflipped, &outline);
 	pglDisable(GL_STENCIL_TEST);
-	pglClear(GL_STENCIL_BUFFER_BIT);
 }
 // -----------------+
 // SetTransform     :
