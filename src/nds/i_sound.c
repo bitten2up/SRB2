@@ -32,6 +32,7 @@
 #include "../doomdef.h"
 #include "../doomstat.h" // menuactive
 
+//#if defined(HAVE_SDL) && defined(HAVE_MIXER) && SOUND==SOUND_MIXER
 
 #include "../sounds.h"
 #include "../s_sound.h"
@@ -43,16 +44,12 @@
 #ifdef _MSC_VER
 #pragma warning(disable : 4214 4244)
 #endif
-#include "SDL.h"
+#include <SDL2/SDL.h>
 #ifdef _MSC_VER
 #pragma warning(default : 4214 4244)
 #endif
 
-#ifdef HAVE_MIXERX
-#include "SDL_mixer_ext.h"
-#else
-#include "SDL_mixer.h"
-#endif
+#include <SDL2/SDL_mixer_ext.h>
 
 /* This is the version number macro for the current SDL_mixer version: */
 #ifndef SDL_MIXER_COMPILEDVERSION
@@ -1580,3 +1577,4 @@ boolean I_FadeInPlaySong(UINT32 ms, boolean looping)
 	else
 		return false;
 }
+//#endif

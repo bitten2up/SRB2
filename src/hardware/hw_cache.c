@@ -32,6 +32,34 @@
 INT32 patchformat = GL_TEXFMT_AP_88; // use alpha for holes
 INT32 textureformat = GL_TEXFMT_P_8; // use chromakey for hole
 
+// Android: Resize blocks for better OpenGL performance
+static INT32 blocksize, blockwidth, blockheight; // Values set after a call to HWR_ResizeBlock()
+static void HWR_ResizeBlock(INT32 originalwidth, INT32 originalheight)
+{
+	if (true)
+	{
+		blockwidth = 1;
+		while (blockwidth < originalwidth)
+			blockwidth <<= 1;
+
+		blockheight = 1;
+		while (blockheight < originalheight)
+			blockheight <<= 1;
+	}
+	else
+	{
+		blockwidth = originalwidth;
+		blockheight = originalheight;
+	}
+
+	if (blockwidth > 2048)
+		blockwidth = 2048;
+	if (blockheight > 2048)
+		blockheight = 2048;
+
+	blocksize = blockwidth * blockheight;
+}
+
 static INT32 format2bpp(GLTextureFormat_t format)
 {
 	if (format == GL_TEXFMT_RGBA)
@@ -469,6 +497,7 @@ static void HWR_GenerateTexture(INT32 texnum, GLMapTexture_t *grtex)
 	}
 	else
 		grtex->mipmap.flags = TF_CHROMAKEYED | TF_WRAPXY;
+	HWR_ResizeBlock (texture->width, texture->height);
 
 	grtex->mipmap.width = (UINT16)texture->width;
 	grtex->mipmap.height = (UINT16)texture->height;
@@ -782,6 +811,9 @@ GLMapTexture_t *HWR_GetTexture(INT32 tex)
 	if ((unsigned)tex >= gl_numtextures)
 		I_Error("HWR_GetTexture: tex >= numtextures\n");
 #endif
+
+	
+	
 
 	// Every texture in memory, stored in the
 	// hardware renderer's bit depth format. Wow!
@@ -1305,6 +1337,7 @@ void HWR_GetFadeMask(lumpnum_t fademasklumpnum)
 {
 	patch_t *patch = HWR_GetCachedGLPatch(fademasklumpnum);
 	GLMipmap_t *grmip = ((GLPatch_t *)Patch_AllocateHardwarePatch(patch))->mipmap;
+
 	if (!grmip->downloaded && !grmip->data)
 		HWR_CacheFadeMask(grmip, fademasklumpnum);
 

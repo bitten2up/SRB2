@@ -2351,15 +2351,16 @@ static void I_Fork(void)
 INT32 I_StartupSystem(void)
 {
 #ifdef __3DS__
-	if (PTMSYSM_CheckNew3DS())
+	// check doesn't work
+	//if (PTMSYSM_CheckNew3DS())
 	{
 		osSetSpeedupEnable(true);
 		// enable fast clock + L2 cache on new3ds
 		PTMSYSM_ConfigureNew3DSCPU(3);
 		osSetSpeedupEnable(true);
 	}
-	//gfxInitDefault();
-	//consoleInit(GFX_BOTTOM, NULL);
+	gfxInitDefault();
+	consoleInit(GFX_BOTTOM, NULL);
 #endif
 	SDL_version SDLcompiled;
 	SDL_version SDLlinked;
@@ -3145,7 +3146,7 @@ size_t I_GetFreeMem(size_t *total)
 	return freeKBytes << 10;
 #elif defined (__3DS__)
 	if (total)
-		*total = 178 * 1024 * 1024;
+		*total = 128 * 1024 * 1024;
 	return linearSpaceFree() + vramSpaceFree();
 #else
 	// Guess 48 MB.

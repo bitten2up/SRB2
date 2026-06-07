@@ -20,6 +20,7 @@
 #include "hw_main.h"
 #include "hw_glob.h"
 #include "hw_drv.h"
+#include "hw_vcache.h"
 
 #include "../m_misc.h" //FIL_WriteFile()
 #include "../r_draw.h" //viewborderlump
@@ -70,7 +71,7 @@ static UINT8 softwaretranstogl_lo[11] = {  0, 12, 24, 36, 48, 60, 71, 83, 95,111
 // -----------------+
 void HWR_DrawPatch(patch_t *gpatch, INT32 x, INT32 y, INT32 option)
 {
-	FOutVector v[4];
+	FOutVector *v = HWR_AllocVertexBuffer(4);
 	FBITFIELD flags;
 	GLPatch_t *hwrPatch;
 
@@ -125,7 +126,7 @@ void HWR_DrawPatch(patch_t *gpatch, INT32 x, INT32 y, INT32 option)
 
 void HWR_DrawStretchyFixedPatch(patch_t *gpatch, fixed_t x, fixed_t y, fixed_t pscale, fixed_t vscale, INT32 option, const UINT8 *colormap)
 {
-	FOutVector v[4];
+	FOutVector *v = HWR_AllocVertexBuffer(4);
 	FBITFIELD flags;
 	float cx = FIXED_TO_FLOAT(x);
 	float cy = FIXED_TO_FLOAT(y);
@@ -367,7 +368,7 @@ void HWR_DrawStretchyFixedPatch(patch_t *gpatch, fixed_t x, fixed_t y, fixed_t p
 
 void HWR_DrawCroppedPatch(patch_t *gpatch, fixed_t x, fixed_t y, fixed_t pscale, fixed_t vscale, INT32 option, const UINT8 *colormap, fixed_t sx, fixed_t sy, fixed_t w, fixed_t h)
 {
-	FOutVector v[4];
+	FOutVector *v = HWR_AllocVertexBuffer(4);
 	FBITFIELD flags;
 	float cx = FIXED_TO_FLOAT(x);
 	float cy = FIXED_TO_FLOAT(y);
@@ -662,7 +663,7 @@ void HWR_DrawCroppedPatch(patch_t *gpatch, fixed_t x, fixed_t y, fixed_t pscale,
 
 void HWR_DrawPic(INT32 x, INT32 y, lumpnum_t lumpnum)
 {
-	FOutVector      v[4];
+	FOutVector      *v = HWR_AllocVertexBuffer(4);
 	const patch_t    *patch;
 
 	// make pic ready in hardware cache
@@ -705,7 +706,7 @@ void HWR_DrawPic(INT32 x, INT32 y, lumpnum_t lumpnum)
 // --------------------------------------------------------------------------
 void HWR_DrawFlatFill (INT32 x, INT32 y, INT32 w, INT32 h, lumpnum_t flatlumpnum)
 {
-	FOutVector v[4];
+	FOutVector *v = HWR_AllocVertexBuffer(4);
 	const size_t len = W_LumpLength(flatlumpnum);
 	UINT16 flatflag = R_GetFlatSize(len) - 1;
 	double dflatsize = (double)(flatflag + 1);
@@ -748,7 +749,7 @@ void HWR_DrawFlatFill (INT32 x, INT32 y, INT32 w, INT32 h, lumpnum_t flatlumpnum
 //  0--1
 void HWR_FadeScreenMenuBack(UINT16 color, UINT8 strength)
 {
-	FOutVector  v[4];
+	FOutVector *v = HWR_AllocVertexBuffer(4);
 	FSurfaceInfo Surf;
 
 	v[0].x = v[3].x = -1.0f;
@@ -780,7 +781,7 @@ void HWR_FadeScreenMenuBack(UINT16 color, UINT8 strength)
 // -----------------+
 void HWR_DrawFadeFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 color, UINT16 actualcolor, UINT8 strength)
 {
-	FOutVector v[4];
+	FOutVector *v = HWR_AllocVertexBuffer(4);
 	FSurfaceInfo Surf;
 	float fx, fy, fw, fh;
 
@@ -951,7 +952,7 @@ void HWR_DrawFadeFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 color, UINT16 ac
 // Draw the console background with translucency support
 void HWR_DrawConsoleBack(UINT32 color, INT32 height)
 {
-	FOutVector  v[4];
+	FOutVector  *v = HWR_AllocVertexBuffer(4);
 	FSurfaceInfo Surf;
 
 	// setup some neat-o translucency effect
@@ -978,7 +979,7 @@ void HWR_DrawConsoleBack(UINT32 color, INT32 height)
 // Very similar to HWR_DrawConsoleBack, except we draw from the middle(-ish) of the screen to the bottom.
 void HWR_DrawTutorialBack(UINT32 color, INT32 boxheight)
 {
-	FOutVector  v[4];
+	FOutVector  *v = HWR_AllocVertexBuffer(4);
 	FSurfaceInfo Surf;
 	INT32 height;
 	if (boxheight < 0)
@@ -1164,7 +1165,7 @@ void HWR_drawAMline(const fline_t *fl, INT32 color)
 // -------------------+
 void HWR_DrawConsoleFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 color, UINT32 actualcolor)
 {
-	FOutVector v[4];
+	FOutVector *v = HWR_AllocVertexBuffer(4);
 	FSurfaceInfo Surf;
 	float fx, fy, fw, fh;
 
@@ -1330,7 +1331,7 @@ void HWR_DrawConsoleFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 color, UINT32
 // -----------------+
 void HWR_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 color)
 {
-	FOutVector v[4];
+	FOutVector *v = HWR_AllocVertexBuffer(4);
 	FSurfaceInfo Surf;
 	float fx, fy, fw, fh;
 

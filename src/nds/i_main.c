@@ -1,3 +1,4 @@
+#include <libgen.h>
 #include "../doomdef.h"
 #include "../d_main.h"
 #include "../m_argv.h"
@@ -15,7 +16,7 @@ int main(int argc, char **argv)
 	// startup SRB2
 	CONS_Printf("Setting up SRB2...\n");
 	D_SRB2Main();
-
+	
 	CONS_Printf("Entering main game loop...\n");
 
 	// never return

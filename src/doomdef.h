@@ -702,7 +702,7 @@ extern int
 #define NEWCLIP
 
 /// OpenGL shaders
-#define GL_SHADERS
+//#define GL_SHADERS
 
 /// Handle touching sector specials in P_PlayerAfterThink instead of P_PlayerThink.
 /// \note   Required for proper collision with moving sloped surfaces that have sector specials on them.

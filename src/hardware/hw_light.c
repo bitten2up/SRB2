@@ -16,6 +16,7 @@
 #ifdef HWRENDER
 #include "hw_light.h"
 #include "hw_drv.h"
+#include "hw_vcache.h"
 #include "../i_video.h"
 #include "../z_zone.h"
 #include "../m_random.h"
@@ -987,7 +988,7 @@ void HWR_DoCoronasLighting(FOutVector *outVerts, gl_vissprite_t *spr)
 
 	if (cv_glcoronas.value && (p_lspr->type & CORONA_SPR))
 	{ // it's an object which emits light
-		FOutVector      light[4];
+		FOutVector      *light = HWR_AllocVertexBuffer(4);
 		FSurfaceInfo    Surf;
 		float           cx = 0.0f, cy = 0.0f, cz = 0.0f; // gravity center
 		float           size;
@@ -1073,7 +1074,7 @@ void HWR_DrawCoronas(void)
 	HWR_GetPic(coronalumpnum);  /// \todo use different coronas
 	for (j = 0;j < dynlights->nb;j++)
 	{
-		FOutVector      light[4];
+		FOutVector      *light = HWR_AllocVertexBuffer(4);
 		FSurfaceInfo    Surf;
 		float           cx = LIGHT_POS(j).x;
 		float           cy = LIGHT_POS(j).y;
