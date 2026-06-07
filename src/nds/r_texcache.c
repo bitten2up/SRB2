@@ -25,9 +25,9 @@
 
 // Texture state
 static TextureInfo textureCache[MAX_SRB2_TEXTURES];
-static size_t nextCacheIndex;
+static size_t nextCacheIndex = 0;
 static TextureInfo *cachedTextures[MAX_SRB2_TEXTURES];
-static size_t nextFreeIndex;
+static size_t nextFreeIndex = 0;
 static TextureInfo *freeTextures[MAX_SRB2_TEXTURES];
 
 void texCacheInit()

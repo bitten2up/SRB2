@@ -653,6 +653,10 @@ void D_RegisterClientCommands(void)
 	COM_AddCommand("numthinkers", Command_Numthinkers_f, COM_LUA);
 	COM_AddCommand("countmobjs", Command_CountMobjs_f, COM_LUA);
 
+#ifdef __3DS__
+	//COM_AddCommand("thinkertimes", Command_Thinkertimes_f);
+#endif
+
 	COM_AddCommand("changeteam", Command_Teamchange_f, COM_LUA);
 	COM_AddCommand("changeteam2", Command_Teamchange2_f, COM_LUA);
 

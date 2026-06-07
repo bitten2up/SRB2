@@ -3486,6 +3486,10 @@ static inline thinker_t* LoadDisappearThinker(actionf_p1 thinker)
 	ht->affectee = READINT32(save_p);
 	ht->sourceline = READINT32(save_p);
 	ht->exists = READINT32(save_p);
+#ifdef __3DS__
+	// bitten temp disable
+	//P_RegisterDisappearForBatch(ht);
+#endif
 	return &ht->thinker;
 }
 

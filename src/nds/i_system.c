@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <malloc.h>
 #include <3ds.h>
 #include <citro3d.h>
 
@@ -28,15 +29,18 @@ static INT64 start_time; // as microseconds since the epoch
 
 u32 __stacksize__ = 0x180000;
 u32 __ctru_linear_heap_size = 48 * 1024 * 1024;
+//u32 __ctru_heap_size = 128 * 1024 * 1024;
 
 float sliderState = 0.0f;
 //----------------------------
 
 size_t I_GetFreeMem(size_t *total)
 {
-	*total = 178 * 1024 * 1024;
-	
-	return linearSpaceFree() + vramSpaceFree();
+	extern u32 __ctru_heap_size;
+	struct mallinfo mi = mallinfo();
+
+	*total = __ctru_heap_size;
+	return (UINT32)(__ctru_heap_size - (size_t)mi.uordblks);
 }
 
 void I_StartupTimer(void)
@@ -74,6 +78,9 @@ static bool isInGame()
 	return !(paused || menuactive);
 }
 
+extern void I_BottomScreenForceOn(void);
+extern void I_BottomScreenReapply(void);
+
 static aptHookCookie hookCookie;
 static void AptEventHook(APT_HookType hookType, void* param)
 {
@@ -86,6 +93,9 @@ static void AptEventHook(APT_HookType hookType, void* param)
 			D_PostEvent(&event);
 			/* fall thru */
 		case APTHOOK_ONSUSPEND:
+			// Restore bottom backlight so the HOME menu / sleep UI isn't
+			// shown on a dark panel. Reapplied on ONRESTORE below.
+			I_BottomScreenForceOn();
 			queuePacket *packet = queueAllocPacketSafe();
 			packet->type = CMD_TYPE_SUSPEND;
 			queueEnqueuePacket(packet);
@@ -93,6 +103,12 @@ static void AptEventHook(APT_HookType hookType, void* param)
 			while (queuePollForDequeue())
 				svcSleepThread(1000 * 1000);
 			//printf("suspended\n");
+			break;
+		case APTHOOK_ONRESTORE:
+		case APTHOOK_ONWAKEUP:
+			// Re-apply user's bottom-screen preference (system may have
+			// powered the panel back on while we were suspended/asleep).
+			I_BottomScreenReapply();
 			break;
 		
 		default:

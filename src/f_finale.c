@@ -2399,6 +2399,10 @@ static void F_CacheTitleScreen(void)
 
 void F_StartTitleScreen(void)
 {
+#ifdef __3DS__
+	extern void I_BottomScreenStartupDone(void);
+	I_BottomScreenStartupDone(); // first title screen marks end of startup
+#endif
 	if (menupres[MN_MAIN].musname[0])
 		S_ChangeMusic(menupres[MN_MAIN].musname, menupres[MN_MAIN].mustrack, menupres[MN_MAIN].muslooping);
 	else

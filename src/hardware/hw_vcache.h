@@ -1,6 +1,12 @@
 #define MAX_NUM_VECTORS			(64 * 1024)
 #define VCACHE_NUM_BUFFERS		3
 
+// Defined in r_nds3d.c. Without this declaration the call below was treated
+// as returning the C89 implicit `int`, which LTO (cross-TU codegen) then
+// mismatches against the real `void *` return — corrupts geometryBuf on
+// 3DS and shows up as a crash/hang at first frame.
+extern void *I_InitVertexBuffer(const size_t geoBufSize);
+
 extern FOutVector *	geometryBuf;
 extern size_t		geometryBufIndex;
 extern size_t		geometryBufSlot;

@@ -503,15 +503,21 @@ static void HWR_RenderPlane(subsector_t *subsector, extrasubsector_t *xsub, bool
 		}
 	}
 
+	// Hoist cos/sin out of the rotation work — both the scroll/ref rotation
+	// below and the per-vertex rotation in the inner loop read the same
+	// (angle), so a single pair of table loads suffices.
+	fixed_t cosa = 0, sina = 0;
 	if (angle) // Only needs to be done if there's an altered angle
 	{
 		tempxsow = flatxref;
 		tempytow = flatyref;
 
 		anglef = ANG2RAD(InvAngle(angle));
+		cosa = cos(anglef);
+		sina = sin(anglef);
 
-		flatxref = (tempxsow * cos(anglef)) - (tempytow * sin(anglef));
-		flatyref = (tempxsow * sin(anglef)) + (tempytow * cos(anglef));
+		flatxref = (tempxsow * cosa) - (tempytow * sina);
+		flatyref = (tempxsow * sina) + (tempytow * sina);
 	}
 
 #define SETUP3DVERT(vert, vx, vy) {\
@@ -532,8 +538,8 @@ static void HWR_RenderPlane(subsector_t *subsector, extrasubsector_t *xsub, bool
 		{\
 			tempxsow = vert->s;\
 			tempytow = vert->t;\
-			vert->s = (tempxsow * cos(anglef)) - (tempytow * sin(anglef));\
-			vert->t = (tempxsow * sin(anglef)) + (tempytow * cos(anglef));\
+			vert->s = (tempxsow * cosa) - (tempytow * sina);\
+			vert->t = (tempxsow * sina) + (tempytow * cosa);\
 		}\
 \
 		vert->x = (vx);\
@@ -2777,15 +2783,22 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 		}
 	}
 
+	// See HWR_RenderPlane for the same hoist rationale (cos/sin once, divide
+	// turned into reciprocal-multiply).
+	fixed_t cosa = 0, sina = 0;
+
 	if (angle) // Only needs to be done if there's an altered angle
 	{
 		tempxsow = flatxref;
 		tempytow = flatyref;
 
 		anglef = ANG2RAD(InvAngle(angle));
+		
+		cosa = cos(anglef);
+		sina = sin(anglef);
 
-		flatxref = (tempxsow * cos(anglef)) - (tempytow * sin(anglef));
-		flatyref = (tempxsow * sin(anglef)) + (tempytow * cos(anglef));
+		flatxref = (tempxsow * cosa) - (tempytow * sina);
+		flatyref = (tempxsow * sina) + (tempytow * cosa);
 	}
 
 	for (i = 0; i < (INT32)nrPlaneVerts; i++,v3d++)
@@ -2809,8 +2822,8 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 			tempxsow = v3d->s;
 			tempytow = v3d->t;
 
-			v3d->s = (tempxsow * cos(anglef)) - (tempytow * sin(anglef));
-			v3d->t = (tempxsow * sin(anglef)) + (tempytow * cos(anglef));
+			v3d->s = (tempxsow * cosa) - (tempytow * sina);
+			v3d->t = (tempxsow * sina) + (tempytow * cosa);
 		}
 
 		v3d->x = FIXED_TO_FLOAT(polysector->vertices[i]->x);
@@ -4908,6 +4921,16 @@ static void HWR_CreateDrawNodes(void)
 
 	// Okay! Let's draw it all! Woo!
 	HWD.pfnSetTransform(&atransform);
+
+    	// planeinfo / polyplaneinfo / wallinfo are appended in BSP-walk order, so
+    	// adjacent entries frequently share a flat (large floors split across
+    	// sectors) or a wall texture (long corridors). HWR_GetFlat /
+    	// HWR_GetTexture both end with HWD.pfnSetTexture — re-binding the same
+    	// texture is wasted work. A single-slot last-result cache skips the
+    	// call when the lump/tex matches the previous entry.
+    	lumpnum_t last_flat = LUMPERROR;
+    	INT32 last_tex = -1;
+
 #ifdef GL_SHADERS
 	HWD.pfnSetShader(SHADER_DEFAULT);
 #endif
@@ -4919,8 +4942,11 @@ static void HWR_CreateDrawNodes(void)
 			// We aren't traversing the BSP tree, so make gl_frontsector null to avoid crashes.
 			gl_frontsector = NULL;
 
-			if (!(sortnode[sortindex[i]].plane->blend & PF_NoTexture))
+			if (!(sortnode[sortindex[i]].plane->blend & PF_NoTexture) && sortnode[sortindex[i]].plane->levelflat->u.flat.lumpnum != last_flat)
+			{
 				HWR_GetLevelFlat(sortnode[sortindex[i]].plane->levelflat);
+				last_flat = sortnode[sortindex[i]].plane->levelflat->u.flat.lumpnum;
+			}
 			HWR_RenderPlane(NULL, sortnode[sortindex[i]].plane->xsub, sortnode[sortindex[i]].plane->isceiling, sortnode[sortindex[i]].plane->fixedheight, sortnode[sortindex[i]].plane->blend, sortnode[sortindex[i]].plane->lightlevel,
 				sortnode[sortindex[i]].plane->levelflat, sortnode[sortindex[i]].plane->FOFSector, sortnode[sortindex[i]].plane->alpha, sortnode[sortindex[i]].plane->planecolormap);
 		}
@@ -4929,15 +4955,21 @@ static void HWR_CreateDrawNodes(void)
 			// We aren't traversing the BSP tree, so make gl_frontsector null to avoid crashes.
 			gl_frontsector = NULL;
 
-			if (!(sortnode[sortindex[i]].polyplane->blend & PF_NoTexture))
-				HWR_GetLevelFlat(sortnode[sortindex[i]].polyplane->levelflat);
+			if (!(sortnode[sortindex[i]].plane->blend & PF_NoTexture) && sortnode[sortindex[i]].plane->levelflat->u.flat.lumpnum != last_flat)
+			{
+				HWR_GetLevelFlat(sortnode[sortindex[i]].plane->levelflat);
+				last_flat = sortnode[sortindex[i]].plane->levelflat->u.flat.lumpnum;
+			}
 			HWR_RenderPolyObjectPlane(sortnode[sortindex[i]].polyplane->polysector, sortnode[sortindex[i]].polyplane->isceiling, sortnode[sortindex[i]].polyplane->fixedheight, sortnode[sortindex[i]].polyplane->blend, sortnode[sortindex[i]].polyplane->lightlevel,
 				sortnode[sortindex[i]].polyplane->levelflat, sortnode[sortindex[i]].polyplane->FOFSector, sortnode[sortindex[i]].polyplane->alpha, sortnode[sortindex[i]].polyplane->planecolormap);
 		}
 		else if (sortnode[sortindex[i]].wall)
 		{
-			if (!(sortnode[sortindex[i]].wall->blend & PF_NoTexture))
-				HWR_GetTexture(sortnode[sortindex[i]].wall->texnum);
+			if (!(sortnode[sortindex[i]].plane->blend & PF_NoTexture) && sortnode[sortindex[i]].plane->levelflat->u.flat.lumpnum != last_flat)
+			{
+				HWR_GetLevelFlat(sortnode[sortindex[i]].plane->levelflat);
+				last_flat = sortnode[sortindex[i]].plane->levelflat->u.flat.lumpnum;
+			}
 			HWR_RenderWall(sortnode[sortindex[i]].wall->wallVerts, &sortnode[sortindex[i]].wall->Surf, sortnode[sortindex[i]].wall->blend, sortnode[sortindex[i]].wall->fogwall,
 				sortnode[sortindex[i]].wall->lightlevel, sortnode[sortindex[i]].wall->wallcolormap);
 		}
@@ -6687,6 +6719,17 @@ static void CV_glanisotropic_OnChange(void)
 //added by Hurdler: console varibale that are saved
 void HWR_AddCommands(void)
 {
+#ifdef __3DS__
+	extern consvar_t cv_3dsfoclen;
+	extern consvar_t cv_3dswidemode;
+	extern consvar_t cv_3dsdisablebottom;
+	extern consvar_t cv_3dsrtformat;
+
+	CV_RegisterVar(&cv_3dsfoclen);
+	CV_RegisterVar(&cv_3dswidemode);
+	CV_RegisterVar(&cv_3dsdisablebottom);
+	CV_RegisterVar(&cv_3dsrtformat);
+#endif
 	CV_RegisterVar(&cv_fovchange);
 
 #ifdef ALAM_LIGHTING

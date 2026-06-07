@@ -21,6 +21,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <malloc.h>
 #include <assert.h>
 #include <3ds.h>
 #include <citro3d.h>
@@ -65,6 +66,84 @@ CV_PossibleValue_t CV_3dsfoclen[] = {{50, "1"}, {60, "2"}, {70, "3"}, {80, "4"},
 	{160, "12"}, {170, "13"}, {180, "14"}, {190, "15"}, {200, "16"},{0, NULL}};
 consvar_t cv_3dsfoclen = {"gr_3dsfoclen", "5", CV_SAVE, CV_3dsfoclen,
                              NULL, 0, NULL, NULL, 0, 0, NULL};
+// Bottom-screen power. Deferred until after the first rendered frame so
+// the boot console (consoleInit on GFX_BOTTOM) stays visible during startup.
+static boolean gameStartedUp = false;
+static void BottomScreen_OnChange(void);
+consvar_t cv_3dsdisablebottom = {"gr_3dsdisablebottom", "Off",
+	CV_SAVE | CV_CALL, CV_OnOff, BottomScreen_OnChange, 0, NULL, NULL, 0, 0, NULL};
+
+// Render-target color format. Default RGBA8 matches gfxInitDefault's BGR8 screen.
+// RGB565 halves color-write bandwidth but introduces 5/6/5 quantization that can
+// expose tiny RGB888 mismatches between adjacent regions (e.g. intro sprites vs
+// background). Deferred until startup the same way the bottom-screen toggle is.
+static CV_PossibleValue_t rtformat_cons_t[] = {{0, "RGBA8"}, {1, "RGB565"}, {0, NULL}};
+static void RTFormat_OnChange(void);
+consvar_t cv_3dsrtformat = {"gr_3dsrtformat", "RGBA8",
+	CV_SAVE | CV_CALL, rtformat_cons_t, RTFormat_OnChange, 0, NULL, NULL, 0, 0, NULL};
+
+// Precache the level's textures at load time so first-use stalls don't hit
+// during gameplay. Read by HWR_PrecacheLevel(). The precache itself watches
+// linearSpaceFree() and stops once free heap drops below a safety margin so
+// runtime allocations (HUD, color-translated sprites, etc.) still fit.
+consvar_t cv_3dsprecache = {"gr_3dsprecache", "On",
+	CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+static void BottomScreen_SetBacklight(boolean off)
+{
+	gspLcdInit();
+	if (off)
+		GSPLCD_PowerOffBacklight(GSPLCD_SCREEN_BOTTOM);
+	else
+		GSPLCD_PowerOnBacklight(GSPLCD_SCREEN_BOTTOM);
+	gspLcdExit();
+}
+
+static void BottomScreen_OnChange(void)
+{
+	// Defer power state changes until after startup; the first I_FinishUpdate
+	// call will re-invoke this once gameStartedUp flips.
+	if (!gameStartedUp)
+		return;
+	BottomScreen_SetBacklight(cv_3dsdisablebottom.value ? true : false);
+}
+
+static void RTFormat_OnChange(void)
+{
+	// Defer until the renderer is up; I_BottomScreenStartupDone re-invokes this.
+	if (!gameStartedUp)
+		return;
+	NDS3D_RequestRTFormat(cv_3dsrtformat.value ? 1 : 0);
+}
+
+// Restore the backlight to ON, leaving cv_3dsdisablebottom unchanged.
+// Called on app exit and when the user opens the HOME menu, so the system
+// doesn't display its own UI on a dark panel.
+void I_BottomScreenForceOn(void)
+{
+	if (!gameStartedUp)
+		return;
+	BottomScreen_SetBacklight(false);
+}
+
+// Re-apply the saved cvar value. Called on resume from HOME menu, since the
+// system may have turned the bottom backlight back on while we were paused.
+void I_BottomScreenReapply(void)
+{
+	BottomScreen_OnChange();
+}
+
+// Called from F_StartTitleScreen the first time the title screen appears.
+// Marks startup as done and applies the saved bottom-screen preference; the
+// boot console on the lower screen stays visible until this point.
+void I_BottomScreenStartupDone(void)
+{
+	if (gameStartedUp)
+		return;
+	gameStartedUp = true;
+	BottomScreen_OnChange();
+	RTFormat_OnChange();
+}
 
 // -------------------------------------------------------
 
@@ -312,11 +391,10 @@ void NDS3DVIDEO_Stub(void)
 void workerThreadEntry(void *arg)
 {
 	s32 curCPU = svcGetProcessorID();
-	//printf("workerThreadEntry cpuID: %i\n", curCPU);
 
 	s32 actualPrio = 0;
 	svcGetThreadPriority(&actualPrio, CUR_THREAD_HANDLE);
-	//printf("worker thread prio: %i\n", actualPrio);
+	printf("workerThread cpuID %i prio %i\n", curCPU, actualPrio);
 
 	extern void NDS3D_Thread(void);
 	NDS3D_Thread();
@@ -782,9 +860,9 @@ void NDS3DVIDEO_UpdateTexture(GLMipmap_t *pTexInfo)
 	do
 	{
 		if (useMipMap)
-			success = C3D_TexInitMipmap(tex, width * scale, height * scale, gpuFormat);
+			success = C3D_TexInitMipmap(tex, width, height, gpuFormat);
 		else
-			success = C3D_TexInit(tex, width * scale, height * scale, gpuFormat);
+			success = C3D_TexInit(tex, width, height, gpuFormat);
 
 		if (!success)
 		{
@@ -797,11 +875,11 @@ void NDS3DVIDEO_UpdateTexture(GLMipmap_t *pTexInfo)
 			}
 			if (attempts >= 1)
 			{
-				size_t totalSize = width * scale * height * scale * texPixelSize;
+				size_t totalSize = width* height * texPixelSize;
 				texDestBuf = memalign(0x1000, totalSize);
 				if (texDestBuf)
 				{
-					success = C3D_TexInitVRAM(tex, width * scale, height * scale, gpuFormat);
+					success = C3D_TexInitVRAM(tex, width, height, gpuFormat);
 					if (!success)
 					{
 						free(texDestBuf);
@@ -831,6 +909,62 @@ void NDS3DVIDEO_UpdateTexture(GLMipmap_t *pTexInfo)
 			{
 				NDS3D_driverHeapStatus();
 				NDS3D_driverLog("texture memory used: %i\n",getTextureMemUsed());
+	// GPU/worker-thread backpressure profiler. If `wait` fires often, the
+	// main thread is filling the queue faster than the worker can drain it
+	// — i.e. the bottleneck is GPU or the worker's dispatch, and CPU-side
+	// optimization on the main thread won't help. If `wait` is rare and
+	// `diff` stays at 1, the main thread is the bottleneck (CPU).
+	#define GPUWAIT_TICKS_PER_SEC 268111856ULL
+	static u32 gpuwait_frames = 0;
+	static u32 gpuwait_throttled = 0;   // # frames we hit diff>1
+	static u32 gpuwait_max_diff = 0;    // worst diff seen this window
+	static u64 gpuwait_ticks = 0;       // total ticks spent in throttle wait
+	static u64 gpuwait_window_start = 0;
+
+	{
+		u64 now = svcGetSystemTick();
+		{
+			u64 ms_x100 = gpuwait_ticks * 100000ULL / GPUWAIT_TICKS_PER_SEC;
+			extern u32 __ctru_linear_heap_size;
+			extern u32 __ctru_heap_size;
+			u32 lintotal = __ctru_linear_heap_size;
+			u32 linused  = lintotal - (u32)linearSpaceFree();
+			u32 used_x100 = (u32)((u64)linused * 100ULL / (1024 * 1024));
+			u32 pct = lintotal ? (u32)((u64)linused * 100ULL / lintotal) : 0;
+			// Texture cache walks the cached entries and sums w*h*4. Approximate
+			// (assumes RGBA8) but good enough to see how much of the linear pool
+			// is textures vs everything else (citro3d cmdbuf, geometryBuf, ...).
+			u32 texbytes = (u32)getTextureMemUsed();
+			u32 tex_x100 = (u32)((u64)texbytes * 100ULL / (1024 * 1024));
+			struct mallinfo mi = mallinfo();
+			u32 mtotal = __ctru_heap_size;
+			u32 mused = (u32)mi.uordblks;
+			u32 mused_x100 = (u32)((u64)mused * 100ULL / (1024 * 1024));
+			u32 mpct = mtotal ? (u32)((u64)mused * 100ULL / mtotal) : 0;
+			NDS3D_driverLog("\x1b[26;1Hmalloc: %u.%02u/%u MiB (%u%%)\x1b[K\n",
+				(unsigned)(mused_x100 / 100), (unsigned)(mused_x100 % 100),
+				(unsigned)(mtotal / (1024 * 1024)),
+				(unsigned)mpct);
+			NDS3D_driverLog("\x1b[27;1Hlinear: %u.%02u/%u MiB (%u%%), tex %u.%02u MiB (%u)\x1b[K\n",
+				(unsigned)(used_x100 / 100), (unsigned)(used_x100 % 100),
+				(unsigned)(lintotal / (1024 * 1024)),
+				(unsigned)pct,
+				(unsigned)(tex_x100 / 100), (unsigned)(tex_x100 % 100),
+				(unsigned)texCacheGetNumCached());
+			// \x1b[28;1H = bottom-screen console row 28, \x1b[K clears
+			// to end-of-line so a shorter line doesn't leave residue.
+			NDS3D_driverLog("\x1b[28;1Hgpuwait: %u/%u f, max-diff:%u, total:%u.%02ums\x1b[K\n",
+				(unsigned)gpuwait_throttled, (unsigned)gpuwait_frames,
+				(unsigned)gpuwait_max_diff,
+				(unsigned)(ms_x100 / 100), (unsigned)(ms_x100 % 100));
+			gpuwait_frames = 0;
+			gpuwait_throttled = 0;
+			gpuwait_max_diff = 0;
+			gpuwait_ticks = 0;
+			gpuwait_window_start = now;
+		}
+	}
+#undef GPUWAIT_TICKS_PER_SEC
 				NDS3D_driverPanic("Failed init tex struct! (heap exhausted?)\n");
 			}
 
@@ -1056,6 +1190,7 @@ void I_StartupGraphics(void)
 
 void I_ShutdownGraphics(void)
 {
+	I_BottomScreenForceOn();
 	HWD.pfnShutdown();
 }
 
@@ -1103,7 +1238,7 @@ void I_FinishUpdate(void)
 	static u32 frameCounter;
 
 	if (cv_ticrate.value)
-        SCR_DisplayTicRate();
+        	SCR_DisplayTicRate();
 
     /* At least one polygon must be drawn */
     if (!hasDrawn)
@@ -1149,14 +1284,78 @@ void I_FinishUpdate(void)
 	u32 numDone = queueGetFrameProgress();
 	u32 diff = frameCounter - numDone;
 
+	// GPU/worker-thread backpressure profiler. If `wait` fires often, the
+	// main thread is filling the queue faster than the worker can drain it
+	// — i.e. the bottleneck is GPU or the worker's dispatch, and CPU-side
+	// optimization on the main thread won't help. If `wait` is rare and
+	// `diff` stays at 1, the main thread is the bottleneck (CPU).
+	#define GPUWAIT_TICKS_PER_SEC 268111856ULL
+	static u32 gpuwait_frames = 0;
+	static u32 gpuwait_throttled = 0;   // # frames we hit diff>1
+	static u32 gpuwait_max_diff = 0;    // worst diff seen this window
+	static u64 gpuwait_ticks = 0;       // total ticks spent in throttle wait
+	static u64 gpuwait_window_start = 0;
+
+	gpuwait_frames++;
+	if (diff > gpuwait_max_diff) gpuwait_max_diff = diff;
+
 
 	if (diff > 1)
 	{
+		u64 t0 = svcGetSystemTick();
+		gpuwait_throttled++;
 		while (diff > 1)
 		{
 			//printf("throttle...%i\n", diff);
 			queueWaitForFrameProgress(numDone);
 			diff = frameCounter - queueGetFrameProgress();
+		}
+		gpuwait_ticks += svcGetSystemTick() - t0;
+	}
+	{
+		u64 now = svcGetSystemTick();
+		if (gpuwait_window_start == 0)
+			gpuwait_window_start = now;
+		else if (now - gpuwait_window_start >= GPUWAIT_TICKS_PER_SEC)
+		{
+			u64 ms_x100 = gpuwait_ticks * 100000ULL / GPUWAIT_TICKS_PER_SEC;
+			extern u32 __ctru_linear_heap_size;
+			extern u32 __ctru_heap_size;
+			u32 lintotal = __ctru_linear_heap_size;
+			u32 linused  = lintotal - (u32)linearSpaceFree();
+			u32 used_x100 = (u32)((u64)linused * 100ULL / (1024 * 1024));
+			u32 pct = lintotal ? (u32)((u64)linused * 100ULL / lintotal) : 0;
+			// Texture cache walks the cached entries and sums w*h*4. Approximate
+			// (assumes RGBA8) but good enough to see how much of the linear pool
+			// is textures vs everything else (citro3d cmdbuf, geometryBuf, ...).
+			u32 texbytes = (u32)getTextureMemUsed();
+			u32 tex_x100 = (u32)((u64)texbytes * 100ULL / (1024 * 1024));
+			struct mallinfo mi = mallinfo();
+			u32 mtotal = __ctru_heap_size;
+			u32 mused = (u32)mi.uordblks;
+			u32 mused_x100 = (u32)((u64)mused * 100ULL / (1024 * 1024));
+			u32 mpct = mtotal ? (u32)((u64)mused * 100ULL / mtotal) : 0;
+			printf("\x1b[26;1Hmalloc: %u.%02u/%u MiB (%u%%)\x1b[K\n",
+				(unsigned)(mused_x100 / 100), (unsigned)(mused_x100 % 100),
+				(unsigned)(mtotal / (1024 * 1024)),
+				(unsigned)mpct);
+			printf("\x1b[27;1Hlinear: %u.%02u/%u MiB (%u%%), tex %u.%02u MiB (%u)\x1b[K\n",
+				(unsigned)(used_x100 / 100), (unsigned)(used_x100 % 100),
+				(unsigned)(lintotal / (1024 * 1024)),
+				(unsigned)pct,
+				(unsigned)(tex_x100 / 100), (unsigned)(tex_x100 % 100),
+				(unsigned)texCacheGetNumCached());
+			// \x1b[28;1H = bottom-screen console row 28, \x1b[K clears
+			// to end-of-line so a shorter line doesn't leave residue.
+			printf("\x1b[28;1Hgpuwait: %u/%u f, max-diff:%u, total:%u.%02ums\x1b[K\n",
+				(unsigned)gpuwait_throttled, (unsigned)gpuwait_frames,
+				(unsigned)gpuwait_max_diff,
+				(unsigned)(ms_x100 / 100), (unsigned)(ms_x100 % 100));
+			gpuwait_frames = 0;
+			gpuwait_throttled = 0;
+			gpuwait_max_diff = 0;
+			gpuwait_ticks = 0;
+			gpuwait_window_start = now;
 		}
 	}
 	

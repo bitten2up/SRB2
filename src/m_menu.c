@@ -1414,6 +1414,13 @@ static menuitem_t OP_ColorOptionsMenu[] =
 };
 
 #ifdef HWRENDER
+#ifdef __3DS__
+extern consvar_t cv_3dsfoclen;
+extern consvar_t cv_3dswidemode;
+extern consvar_t cv_3dsdisablebottom;
+extern consvar_t cv_3dsrtformat;
+#endif
+
 static menuitem_t OP_OpenGLOptionsMenu[] =
 {
 	{IT_HEADER, NULL, "3D Models", NULL, 0},
@@ -1435,6 +1442,13 @@ static menuitem_t OP_OpenGLOptionsMenu[] =
 #endif
 #if defined (_WINDOWS) && (!(defined (__unix__) || defined (UNIXCOMMON) || defined (HAVE_SDL)))
 	{IT_STRING|IT_CVAR,         NULL, "Fullscreen",          &cv_fullscreen,          154},
+#endif
+#ifdef __3DS__
+	{IT_HEADER, NULL, "Nintendo 3DS Options", NULL, 175},
+	{IT_STRING|IT_CVAR,         NULL, "Stereo.3d Focal Length",&cv_3dsfoclen,		185},
+	{IT_STRING|IT_CVAR,         NULL, "Wide Screen Mode (240x800px)",&cv_3dswidemode,195},
+	{IT_STRING|IT_CVAR,         NULL, "Disable Bottom Screen",&cv_3dsdisablebottom,	205},
+	{IT_STRING|IT_CVAR,         NULL, "Color Format",&cv_3dsrtformat,		215},
 #endif
 };
 
