@@ -48,6 +48,7 @@
 #include "p_setup.h"
 #include "f_finale.h"
 #include "lua_hook.h"
+#include "dll/deh_dll.h"
 
 #ifdef HWRENDER
 #include "hardware/hw_main.h"
@@ -6257,6 +6258,7 @@ static void M_LoadAddonsPatches(void)
 	addonsp[EXT_PK3] = W_CachePatchName("M_FPK3", PU_PATCH);
 	addonsp[EXT_SOC] = W_CachePatchName("M_FSOC", PU_PATCH);
 	addonsp[EXT_LUA] = W_CachePatchName("M_FLUA", PU_PATCH);
+	addonsp[EXT_DLL] = W_CachePatchName("M_FDLL", PU_PATCH);
 	addonsp[NUM_EXT] = W_CachePatchName("M_FUNKN", PU_PATCH);
 	addonsp[NUM_EXT+1] = W_CachePatchName("M_FSEL", PU_PATCH);
 	addonsp[NUM_EXT+2] = W_CachePatchName("M_FLOAD", PU_PATCH);
@@ -6750,6 +6752,9 @@ static void M_HandleAddons(INT32 choice)
 							break;
 						case EXT_CFG:
 							M_AddonExec(KEY_ENTER);
+							break;
+						case EXT_DLL:
+							M_StartMessage(va("%c%s\x80\nThis file may not be a addon OR could contain malware.\nAttempt to run anyways? \n\n(Press 'Y' to confirm)\n", ('\x80' + (highlightflags>>V_CHARCOLORSHIFT)), dirmenu[dir_on[menudepthleft]]+DIR_STRING),DEH_AddonDll,MM_YESNO);
 							break;
 						case EXT_LUA:
 						case EXT_SOC:

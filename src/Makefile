@@ -183,6 +183,7 @@ objdir:=$(makedir)/objs
 sources+=\
 	$(call List,Sourcefile)\
 	$(call List,blua/Sourcefile)\
+	$(call List,dll/Sourcefile)\
 	$(call List,netcode/Sourcefile)\
 
 depends:=$(basename $(filter %.c %.s,$(sources)))
