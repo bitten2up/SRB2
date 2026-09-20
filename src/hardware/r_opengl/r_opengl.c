@@ -2774,32 +2774,30 @@ static void DrawModelEx(model_t *model, INT32 frameIndex, float duration, float 
 // HWRAPI DrawModel : Draw a model
 // -----------------+
 EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface) {
-
 	pglStencilOp(GL_REPLACE, GL_KEEP, GL_REPLACE);
 	pglStencilFunc(GL_ALWAYS, 1, 0xFF);
 	pglStencilMask(0xFF);
 	pglClear(GL_STENCIL_BUFFER_BIT);
 	FSurfaceInfo outline = {0};
-	memcpy(&outline, Surface, sizeof(FSurfaceInfo));
+	//memcpy(&outline, Surface, sizeof(FSurfaceInfo));
 	outline.PolyColor.rgba = 0x00;
 	outline.PolyColor.s.alpha = 0xff;
 
 	outline.TintColor.rgba = 0x00;
 	outline.TintColor.s.alpha = 0xff;
 
-	outline.FadeColor.s.red = 0x00;
-	outline.FadeColor.s.blue = 0xFF;
-	outline.FadeColor.s.green = 0xFF;
-	outline.FadeColor.s.green = 0xFF;
 	outline.PolyFlags = 0xffffffff;
 	outline.PolyFlags ^= PF_Invisible|PF_NoDepthTest;
 	Surface->PolyFlags |= PF_Occlude;
 
 	pglDepthMask(GL_TRUE);
 
-	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale, vscale, flipped, hflipped, Surface);
+	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale, vscale, flipped, hflipped, &outline);
 	pglStencilFunc(GL_NOTEQUAL, 1, 0xFF);
 	pglStencilMask(0x00);
+	outline.FadeColor.s.red = 0xA0;
+	outline.FadeColor.s.blue = 0xA0;
+	outline.FadeColor.s.green = 0x00;
 	//pglDepthMask(GL_FALSE);
 	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1f, vscale*1.1f, flipped, hflipped, &outline);
 	pglStencilFunc(GL_ALWAYS, 1, 0xFF);
