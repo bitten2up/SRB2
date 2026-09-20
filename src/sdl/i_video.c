@@ -1639,6 +1639,7 @@ static SDL_bool Impl_CreateWindow(SDL_bool fullscreen)
 	// Some GPU drivers may give us a 16-bit depth buffer since the
 	// default value for SDL_GL_DEPTH_SIZE is 16.
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 #endif
 
 	// Create a window

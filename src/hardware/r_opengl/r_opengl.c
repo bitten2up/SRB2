@@ -1020,6 +1020,8 @@ void SetStates(void)
 	pglDepthRange(0.0f, 1.0f);
 	pglDepthFunc(GL_LEQUAL);
 
+	pglEnable(GL_STENCIL_TEST);
+
 	// this set CurrentPolyFlags to the actual configuration
 	CurrentPolyFlags = 0xffffffff;
 	SetBlend(0);
@@ -2773,14 +2775,12 @@ static void DrawModelEx(model_t *model, INT32 frameIndex, float duration, float 
 // -----------------+
 EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface) {
 
-	pglEnable(GL_STENCIL_TEST);
-	pglStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+	pglStencilOp(GL_REPLACE, GL_KEEP, GL_REPLACE);
 	pglStencilFunc(GL_ALWAYS, 1, 0xFF);
 	pglStencilMask(0xFF);
 	pglClear(GL_STENCIL_BUFFER_BIT);
 	FSurfaceInfo outline = {0};
-
-	//memcpy(&outline, Surface, sizeof(FSurfaceInfo));
+	memcpy(&outline, Surface, sizeof(FSurfaceInfo));
 	outline.PolyColor.rgba = 0x00;
 	outline.PolyColor.s.alpha = 0xff;
 
@@ -2800,9 +2800,9 @@ EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration,
 	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale, vscale, flipped, hflipped, Surface);
 	pglStencilFunc(GL_NOTEQUAL, 1, 0xFF);
 	pglStencilMask(0x00);
-	pglDepthMask(GL_FALSE);
-	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1, vscale*1.1, flipped, hflipped, &outline);
-	pglDisable(GL_STENCIL_TEST);
+	//pglDepthMask(GL_FALSE);
+	DrawModelEx(model, frameIndex, duration, tics, nextFrameIndex, pos, hscale*1.1f, vscale*1.1f, flipped, hflipped, &outline);
+	pglStencilFunc(GL_ALWAYS, 1, 0xFF);
 }
 // -----------------+
 // SetTransform     :
@@ -2918,6 +2918,7 @@ EXPORT void HWRAPI(PostImgRedraw) (float points[SCREENVERTS][SCREENVERTS][2])
 
 	pglDisable(GL_DEPTH_TEST);
 	pglDisable(GL_BLEND);
+	pglDisable(GL_STENCIL_TEST);
 
 	// const float blackBack[16]
 
@@ -2978,6 +2979,7 @@ EXPORT void HWRAPI(PostImgRedraw) (float points[SCREENVERTS][SCREENVERTS][2])
 
 	pglEnable(GL_DEPTH_TEST);
 	pglEnable(GL_BLEND);
+	pglEnable(GL_STENCIL_TEST);
 }
 
 // Sryder:	This needs to be called whenever the screen changes resolution in order to reset the screen textures to use
