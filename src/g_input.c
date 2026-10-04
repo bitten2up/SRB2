@@ -31,6 +31,11 @@ consvar_t cv_mousesens = CVAR_INIT ("mousesens", "20", CV_SAVE, mousesens_cons_t
 consvar_t cv_mousesens2 = CVAR_INIT ("mousesens2", "20", CV_SAVE, mousesens_cons_t, NULL);
 consvar_t cv_mouseysens = CVAR_INIT ("mouseysens", "20", CV_SAVE, mousesens_cons_t, NULL);
 consvar_t cv_mouseysens2 = CVAR_INIT ("mouseysens2", "20", CV_SAVE, mousesens_cons_t, NULL);
+
+consvar_t cv_gyrosens = CVAR_INIT ("gyrosens", "20", CV_SAVE, mousesens_cons_t, NULL);
+consvar_t cv_gyrosens2 = CVAR_INIT ("gyrosens2", "20", CV_SAVE, mousesens_cons_t, NULL);
+consvar_t cv_gyroysens = CVAR_INIT ("gyroysens", "20", CV_SAVE, mousesens_cons_t, NULL);
+consvar_t cv_gyroysens2 = CVAR_INIT ("gyroysens2", "20", CV_SAVE, mousesens_cons_t, NULL);
 consvar_t cv_controlperkey = CVAR_INIT ("controlperkey", "One", CV_SAVE, onecontrolperkey_cons_t, NULL);
 
 mouse_t mouse;

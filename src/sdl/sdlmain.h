@@ -40,8 +40,10 @@ extern SDL_bool framebuffer;
 */
 typedef struct SDLJoyInfo_s
 {
-	/// Joystick handle
+	/// Old Joystick handle
 	SDL_Joystick *dev;
+	/// New Gamepad handle
+	SDL_GameController *dev1;
 	/// number of old joystick
 	int oldjoy;
 	/// number of axies
@@ -54,6 +56,9 @@ typedef struct SDLJoyInfo_s
 	int hats;
 	/// number of balls
 	int balls;
+
+	// gyro
+	bool gyro;
 
 } SDLJoyInfo_t;
 

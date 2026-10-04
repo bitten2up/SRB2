@@ -82,6 +82,7 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #include "SDL_cpuinfo.h"
 #define HAVE_SDLCPUINFO
 
+#include "SDL_gamecontroller.h"
 #if defined (__unix__) || defined(__APPLE__) || defined (UNIXCOMMON)
 #if defined (__linux__) || defined (__HAIKU__) || defined (__EMSCRIPTEN__)
 #include <sys/statvfs.h>
@@ -1270,7 +1271,8 @@ static int joy_open(int joyindex)
 		return -1;
 	}
 
-	newdev = SDL_JoystickOpen(joyindex-1);
+	SDL_GameController *gamepad = SDL_GameControllerOpen(joyindex-1);
+	newdev = SDL_GameControllerGetJoystick(gamepad);
 
 	// Handle the edge case where the device <-> joystick index assignment can change due to hotplugging
 	// This indexing is SDL's responsibility and there's not much we can do about it.
@@ -1293,6 +1295,15 @@ static int joy_open(int joyindex)
 	}
 
 	JoyInfo.dev = newdev;
+	JoyInfo.dev1 = gamepad;
+	JoyInfo.gyro = SDL_GameControllerHasSensor(JoyInfo.dev1, SDL_SENSOR_GYRO);
+	if (JoyInfo.gyro == true)
+	{
+		SDL_GameControllerSetSensorEnabled(JoyInfo.dev1, SDL_SENSOR_GYRO,true);
+		CONS_Printf("Gyro Supported :3\n");
+	}
+	else
+		CONS_Printf("Gyro Unsupported :(\n");
 
 	if (JoyInfo.dev == NULL)
 	{
@@ -1620,7 +1631,7 @@ void I_InitJoystick(void)
 	{
 		CONS_Printf("I_InitJoystick()...\n");
 
-		if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) == -1)
+		if (SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_SENSOR) == -1)
 		{
 			CONS_Printf(M_GetText("Couldn't initialize joystick: %s\n"), SDL_GetError());
 			return;

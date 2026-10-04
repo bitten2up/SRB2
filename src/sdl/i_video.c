@@ -927,6 +927,42 @@ static void Impl_HandleJoystickHatEvent(SDL_JoyHatEvent evt)
 }
 #endif
 
+static void Impl_HandleControllerSensorEvent(SDL_ControllerSensorEvent evt)
+{
+// stollen info from SDL_sensor.h
+//
+// accelerometer
+// - `values[0]`: Acceleration on the x axis
+// - `values[1]`: Acceleration on the y axis
+// - `values[2]`: Acceleration on the z axis
+//
+// For phones and tablets held in natural orientation and game controllers
+// held in front of you, the axes are defined as follows:
+//
+// - -X ... +X : left ... right
+// - -Y ... +Y : bottom ... top
+// - -Z ... +Z : farther ... closer
+//
+// Gyroscope sensor notes:
+// - `values[0]`: Angular speed around the x axis (pitch)
+// - `values[1]`: Angular speed around the y axis (yaw)
+// - `values[2]`: Angular speed around the z axis (roll)
+//
+// For phones and tablets held in natural orientation and game controllers
+// held in front of you, the axes are defined as follows:
+//
+// - -X ... +X : left ... right
+// - -Y ... +Y : bottom ... top
+// - -Z ... +Z : farther ... closer
+  if (evt.sensor != SDL_SENSOR_GYRO)
+    return;
+	if (ShouldGrabMouse())
+	{
+  	mousemovex -= (INT32)evt.data[1]*((cv_gyrosens.value*cv_gyrosens.value)/110.0f + 0.1f);
+  	mousemovey += (INT32)evt.data[0]*((cv_gyroysens.value*cv_gyroysens.value)/110.0f + 0.1f);
+	}
+}
+
 static void Impl_HandleJoystickButtonEvent(SDL_JoyButtonEvent evt, Uint32 type)
 {
 	event_t event;
@@ -1014,13 +1050,17 @@ void I_GetEvent(void)
 				Impl_HandleJoystickHatEvent(evt.jhat)
 				break;
 #endif
+			case SDL_CONTROLLERSENSORUPDATE:
+				Impl_HandleControllerSensorEvent(evt.csensor);
+				break;
 			case SDL_JOYBUTTONUP:
 			case SDL_JOYBUTTONDOWN:
 				Impl_HandleJoystickButtonEvent(evt.jbutton, evt.type);
 				break;
-			case SDL_JOYDEVICEADDED:
+			case SDL_CONTROLLERDEVICEADDED:
 				{
-					SDL_Joystick *newjoy = SDL_JoystickOpen(evt.jdevice.which);
+					SDL_GameController *gamepad = SDL_GameControllerOpen(evt.cdevice.which);
+					SDL_Joystick *newjoy = SDL_GameControllerGetJoystick(gamepad);
 
 					CONS_Debug(DBG_GAMELOGIC, "Joystick device index %d added\n", evt.jdevice.which + 1);
 

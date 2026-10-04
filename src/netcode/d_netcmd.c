@@ -857,6 +857,10 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_mousesens2);
 	CV_RegisterVar(&cv_mouseysens);
 	CV_RegisterVar(&cv_mouseysens2);
+	CV_RegisterVar(&cv_gyrosens);
+	CV_RegisterVar(&cv_gyrosens2);
+	CV_RegisterVar(&cv_gyroysens);
+	CV_RegisterVar(&cv_gyroysens2);
 	CV_RegisterVar(&cv_mousemove);
 	CV_RegisterVar(&cv_mousemove2);
 
