@@ -956,7 +956,7 @@ static void Impl_HandleControllerSensorEvent(SDL_ControllerSensorEvent evt)
 // - -Z ... +Z : farther ... closer
   if (evt.sensor != SDL_SENSOR_GYRO)
     return;
-	if (ShouldGrabMouse())
+	if (ShouldGrabMouse() && JoyInfo.gyro)
 	{
   	mousemovex -= (INT32)(evt.data[1]*((cv_gyrosens.value*cv_gyrosens.value)/110.0f + 0.1f));
   	mousemovey += (INT32)(evt.data[0]*((cv_gyroysens.value*cv_gyroysens.value)/110.0f + 0.1f));
