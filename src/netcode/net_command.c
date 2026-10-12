@@ -309,8 +309,8 @@ void PT_TextCmd(SINT8 node, INT32 netconsole)
 		{
 			if (strncasestr(netbuffer->u.textcmd, bannedwords[ix], netbuffer->u.textcmd[0]))
 			{
-				Net_CloseConnection(node);
-				COM_ImmedExecute(va("say Player %i just said a banned word", node));
+				Net_UnAcknowledgePacket(node);
+				COM_ImmedExecute(va("say Player %i just said a banned word; kick %i \"banned word\"", node,node));
 				break;
 			}
 		}
