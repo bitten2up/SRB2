@@ -3,7 +3,7 @@
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
 // Copyright (C) 2011-2016 by Matthew "Kaito Sinclaire" Walsh.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2025 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -20,7 +20,7 @@
 #include "command.h"
 #include "f_finale.h" // for ttmode_enum
 #include "i_threads.h"
-#include "mserv.h"
+#include "netcode/mserv.h"
 #include "r_things.h" // for SKINNAMESIZE
 
 // Compatibility with old-style named NiGHTS replay files.
@@ -74,7 +74,7 @@ typedef enum
 	MN_MP_SERVER,
 	MN_MP_CONNECT,
 	MN_MP_ROOM,
-	MN_MP_PLAYERSETUP, // MP_PlayerSetupDef shared with SPLITSCREEN if #defined NONET
+	MN_MP_PLAYERSETUP,
 	MN_MP_SERVER_OPTIONS,
 
 	// Options
@@ -143,7 +143,7 @@ typedef enum
 
 typedef struct
 {
-	char bgname[8]; // name for background gfx lump; lays over titlemap if this is set
+	char bgname[8+1]; // name for background gfx lump; lays over titlemap if this is set
 	SINT8 fadestrength;  // darken background when displaying this menu, strength 0-31 or -1 for undefined
 	INT32 bgcolor; // fill color, overrides bg name. -1 means follow bg name rules.
 	INT32 titlescrollxspeed; // background gfx scroll per menu; inherits global setting
@@ -153,13 +153,13 @@ typedef struct
 	SINT8 hidetitlepics; // hide title gfx per menu; -1 means undefined, inherits global setting
 	ttmode_enum ttmode; // title wing animation mode; default TTMODE_OLD
 	UINT8 ttscale; // scale of title wing gfx (FRACUNIT / ttscale); -1 means undefined, inherits global setting
-	char ttname[9]; // lump name of title wing gfx. If name length is <= 6, engine will attempt to load numbered frames (TTNAMExx)
+	char ttname[8+1]; // lump name of title wing gfx. If name length is <= 6, engine will attempt to load numbered frames (TTNAMExx)
 	INT16 ttx; // X position of title wing
 	INT16 tty; // Y position of title wing
 	INT16 ttloop; // # frame to loop; -1 means dont loop
 	UINT16 tttics; // # of tics per frame
 
-	char musname[7]; ///< Music track to play. "" for no music.
+	char musname[6+1]; ///< Music track to play. "" for no music.
 	UINT16 mustrack; ///< Subsong to play. Only really relevant for music modules and specific formats supported by GME. 0 to ignore.
 	boolean muslooping; ///< Loop the music
 	boolean musstop; ///< Don't play any music
@@ -200,8 +200,8 @@ void M_Drawer(void);
 // Called by D_SRB2Main, loads the config file.
 void M_Init(void);
 
-// Called by D_SRB2Main also, sets up the playermenu and description tables.
-void M_InitCharacterTables(void);
+// Called by deh_soc.c, sets up the playermenu and description tables.
+void M_InitCharacterTables(INT32 num);
 
 // Called by intro code to force menu up upon a keypress,
 // does nothing if menu is already up.
@@ -352,9 +352,7 @@ void M_ClearMenus(boolean callexitmenufunc);
 // Maybe this goes here????? Who knows.
 boolean M_MouseNeeded(void);
 
-#ifdef HAVE_THREADS
 extern I_mutex m_menu_mutex;
-#endif
 
 extern menu_t *currentMenu;
 
@@ -369,18 +367,16 @@ extern menu_t OP_JoystickSetDef;
 typedef struct
 {
 	boolean used;
-	char notes[441];
-	char picname[8];
+	char notes[440+1];
+	char picname[8+1];
 	char skinname[SKINNAMESIZE*2+2]; // skin&skin\0
 	patch_t *charpic;
 	UINT8 prev;
 	UINT8 next;
-
-	// new character select
 	char displayname[SKINNAMESIZE+1];
-	SINT8 skinnum[2];
+	INT16 skinnum[2];
 	UINT16 oppositecolor;
-	char nametag[8];
+	char nametag[8+1];
 	patch_t *namepic;
 	UINT16 tagtextcolor;
 	UINT16 tagoutlinecolor;
@@ -423,6 +419,7 @@ typedef struct
 {
 	char levelname[32];
 	UINT8 skinnum;
+	char skinname [SKINNAMESIZE+1];
 	UINT8 botskin;
 	UINT8 numemeralds;
 	UINT8 numgameovers;
@@ -431,7 +428,8 @@ typedef struct
 	INT32 gamemap;
 } saveinfo_t;
 
-extern description_t description[MAXSKINS];
+extern description_t *description;
+extern INT32 numdescriptions;
 
 extern consvar_t cv_showfocuslost;
 extern consvar_t cv_newgametype, cv_nextmap, cv_chooseskin, cv_serversort;

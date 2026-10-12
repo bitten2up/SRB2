@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2025 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -14,6 +14,10 @@
 ///        SRB2 main program (D_SRB2Main) and game loop (D_SRB2Loop),
 ///        plus functions to parse command line parameters, configure game
 ///        parameters, and call the startup functions.
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #if defined (__unix__) || defined (__APPLE__) || defined (UNIXCOMMON)
 #include <sys/stat.h>
@@ -34,7 +38,7 @@
 #include "doomdef.h"
 #include "am_map.h"
 #include "console.h"
-#include "d_net.h"
+#include "netcode/d_net.h"
 #include "f_finale.h"
 #include "g_game.h"
 #include "hu_stuff.h"
@@ -50,17 +54,18 @@
 #include "p_saveg.h"
 #include "r_main.h"
 #include "r_local.h"
+#include "r_translation.h"
 #include "s_sound.h"
 #include "st_stuff.h"
 #include "v_video.h"
 #include "w_wad.h"
 #include "z_zone.h"
 #include "d_main.h"
-#include "d_netfil.h"
+#include "netcode/d_netfil.h"
 #include "m_cheat.h"
 #include "y_inter.h"
 #include "p_local.h" // chasecam
-#include "mserv.h" // ms_RoomId
+#include "netcode/mserv.h" // ms_RoomId
 #include "m_misc.h" // screenshot functionality
 #include "deh_tables.h" // Dehacked list test
 #include "m_cond.h" // condition initialization
@@ -192,19 +197,19 @@ void D_ProcessEvents(void)
 		ev = &events[eventtail];
 
 		// Set mouse buttons early in case event is eaten later
-		if (ev->type == ev_keydown || ev->type == ev_keyup)
+		if (ev->type == ev_keydown || ev->type == ev_keyup || ev->type == ev_text)
 		{
 			// Mouse buttons
 			if ((UINT32)(ev->key - KEY_MOUSE1) < MOUSEBUTTONS)
 			{
-				if (ev->type == ev_keydown)
+				if (ev->type == ev_keydown || ev->type == ev_text)
 					mouse.buttons |= 1 << (ev->key - KEY_MOUSE1);
 				else
 					mouse.buttons &= ~(1 << (ev->key - KEY_MOUSE1));
 			}
 			else if ((UINT32)(ev->key - KEY_2MOUSE1) < MOUSEBUTTONS)
 			{
-				if (ev->type == ev_keydown)
+				if (ev->type == ev_keydown || ev->type == ev_text)
 					mouse2.buttons |= 1 << (ev->key - KEY_2MOUSE1);
 				else
 					mouse2.buttons &= ~(1 << (ev->key - KEY_2MOUSE1));
@@ -243,15 +248,11 @@ void D_ProcessEvents(void)
 		}
 
 		// Menu input
-#ifdef HAVE_THREADS
 		I_lock_mutex(&m_menu_mutex);
-#endif
 		{
 			eaten = M_Responder(ev);
 		}
-#ifdef HAVE_THREADS
 		I_unlock_mutex(m_menu_mutex);
-#endif
 
 		if (eaten)
 			continue; // menu ate the event
@@ -263,15 +264,11 @@ void D_ProcessEvents(void)
 		}
 
 		// console input
-#ifdef HAVE_THREADS
 		I_lock_mutex(&con_mutex);
-#endif
 		{
 			eaten = CON_Responder(ev);
 		}
-#ifdef HAVE_THREADS
 		I_unlock_mutex(con_mutex);
-#endif
 
 		if (eaten)
 			continue; // ate the event
@@ -407,13 +404,11 @@ static void D_Display(void)
 		case GS_LEVEL:
 			if (!gametic)
 				break;
-			HU_Erase();
 			AM_Drawer();
 			break;
 
 		case GS_INTERMISSION:
 			Y_IntermissionDrawer();
-			HU_Erase();
 			HU_Drawer();
 			break;
 
@@ -428,13 +423,11 @@ static void D_Display(void)
 
 		case GS_ENDING:
 			F_EndingDrawer();
-			HU_Erase();
 			HU_Drawer();
 			break;
 
 		case GS_CUTSCENE:
 			F_CutsceneDrawer();
-			HU_Erase();
 			HU_Drawer();
 			break;
 
@@ -444,7 +437,6 @@ static void D_Display(void)
 
 		case GS_EVALUATION:
 			F_GameEvaluationDrawer();
-			HU_Erase();
 			HU_Drawer();
 			break;
 
@@ -454,7 +446,6 @@ static void D_Display(void)
 
 		case GS_CREDITS:
 			F_CreditDrawer();
-			HU_Erase();
 			HU_Drawer();
 			break;
 
@@ -464,7 +455,6 @@ static void D_Display(void)
 			{
 				// I don't think HOM from nothing drawing is independent...
 				F_WaitingPlayersDrawer();
-				HU_Erase();
 				HU_Drawer();
 			}
 		case GS_DEDICATEDSERVER:
@@ -479,11 +469,21 @@ static void D_Display(void)
 	{
 		wipegamestate = gamestate;
 
-		// clean up border stuff
-		// see if the border needs to be initially drawn
 		if (gamestate == GS_LEVEL || (gamestate == GS_TITLESCREEN && titlemapinaction && curbghide && (!hidetitlemap)))
 		{
 			// draw the view directly
+			if (cv_debug)
+			{
+				r_renderwalls = cv_renderwalls.value;
+				r_renderfloors = cv_renderfloors.value;
+				r_renderthings = cv_renderthings.value;
+			}
+			else
+			{
+				r_renderwalls = true;
+				r_renderfloors = true;
+				r_renderthings = true;
+			}
 
 			if (!automapactive && !dedicated && cv_renderview.value)
 			{
@@ -505,23 +505,21 @@ static void D_Display(void)
 				// render the second screen
 				if (splitscreen && players[secondarydisplayplayer].mo)
 				{
-	#ifdef HWRENDER
-					if (rendermode != render_soft)
+					viewwindowy = vid.height / 2;
+
+#ifdef HWRENDER
+					if (rendermode == render_opengl)
 						HWR_RenderPlayerView(1, &players[secondarydisplayplayer]);
 					else
-	#endif
+#endif
 					if (rendermode != render_none)
 					{
-						viewwindowy = vid.height / 2;
-						M_Memcpy(ylookup, ylookup2, viewheight*sizeof (ylookup[0]));
-
 						topleft = screens[0] + viewwindowy*vid.width + viewwindowx;
 
 						R_RenderPlayerView(&players[secondarydisplayplayer]);
-
-						viewwindowy = 0;
-						M_Memcpy(ylookup, ylookup1, viewheight*sizeof (ylookup[0]));
 					}
+
+					viewwindowy = 0;
 				}
 
 				// Image postprocessing effect
@@ -594,13 +592,9 @@ static void D_Display(void)
 	// vid size change is now finished if it was on...
 	vid.recalc = 0;
 
-#ifdef HAVE_THREADS
 	I_lock_mutex(&m_menu_mutex);
-#endif
 	M_Drawer(); // menu is drawn even on top of everything
-#ifdef HAVE_THREADS
 	I_unlock_mutex(m_menu_mutex);
-#endif
 	// focus lost moved to M_Drawer
 
 	CON_Drawer();
@@ -677,13 +671,13 @@ static void D_Display(void)
 			s[sizeof s - 1] = '\0';
 
 			snprintf(s, sizeof s - 1, "get %d b/s", getbps);
-			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-ST_HEIGHT-40, V_YELLOWMAP, s);
+			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-40, V_YELLOWMAP, s);
 			snprintf(s, sizeof s - 1, "send %d b/s", sendbps);
-			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-ST_HEIGHT-30, V_YELLOWMAP, s);
+			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-30, V_YELLOWMAP, s);
 			snprintf(s, sizeof s - 1, "GameMiss %.2f%%", gamelostpercent);
-			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-ST_HEIGHT-20, V_YELLOWMAP, s);
+			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-20, V_YELLOWMAP, s);
 			snprintf(s, sizeof s - 1, "SysMiss %.2f%%", lostpercent);
-			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-ST_HEIGHT-10, V_YELLOWMAP, s);
+			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-10, V_YELLOWMAP, s);
 		}
 
 		if (cv_perfstats.value)
@@ -703,16 +697,11 @@ static void D_Display(void)
 
 tic_t rendergametic;
 
+static void D_RunFrame(void);
+static tic_t oldentertics = 0;
+
 void D_SRB2Loop(void)
 {
-	tic_t entertic = 0, oldentertics = 0, realtics = 0, rendertimeout = INFTICS;
-	double deltatics = 0.0;
-	double deltasecs = 0.0;
-	static lumpnum_t gstartuplumpnum;
-
-	boolean interp = false;
-	boolean doDisplay = false;
-
 	if (dedicated)
 		server = true;
 
@@ -748,21 +737,68 @@ void D_SRB2Loop(void)
 	// hack to start on a nice clear console screen.
 	COM_ImmedExecute("cls;version");
 
+#ifdef __EMSCRIPTEN__
+	EM_ASM(
+		try {
+			StartedMainLoopCallback();
+		} catch (err) {
+			console.log('Faild to find StartedMainLoopCallback()');
+		}
+	);
+#endif
+
 	I_FinishUpdate(); // page flip or blit buffer
 	/*
 	LMFAO this was showing garbage under OpenGL
 	because I_FinishUpdate was called afterward
 	*/
 	/* Smells like a hack... Don't fade Sonic's ass into the title screen. */
+
 	if (gamestate != GS_TITLESCREEN)
 	{
-		gstartuplumpnum = W_CheckNumForName("STARTUP");
+		lumpnum_t gstartuplumpnum = W_CheckNumForPatchName("STARTUP");
 		if (gstartuplumpnum == LUMPERROR)
-			gstartuplumpnum = W_GetNumForName("MISSING");
+			gstartuplumpnum = W_GetNumForPatchName("MISSING");
 		V_DrawScaledPatch(0, 0, 0, W_CachePatchNum(gstartuplumpnum, PU_PATCH));
 	}
-
+#ifdef __EMSCRIPTEN__
+	emscripten_set_main_loop(D_RunFrame, 0, 1);
+#else
 	for (;;)
+	{
+		D_RunFrame();
+	}
+#endif
+}
+
+static boolean D_LockFrame = false;
+
+#ifdef __EMSCRIPTEN__
+int EMSCRIPTEN_KEEPALIVE pause_loop(void)
+{
+	D_LockFrame = true;
+	emscripten_pause_main_loop();
+	return 0;
+}
+
+int EMSCRIPTEN_KEEPALIVE resume_loop(void)
+{
+	D_LockFrame = false;
+	emscripten_resume_main_loop();
+	return 0;
+}
+#endif
+
+static void D_RunFrame(void)
+{
+	static tic_t entertic = 0, realtics = 0, rendertimeout = INFTICS;
+	static double deltatics = 0.0;
+	static double deltasecs = 0.0;
+
+	static boolean interp = false;
+	static boolean doDisplay = false;
+
+	if (!D_LockFrame)
 	{
 		// capbudget is the minimum precise_t duration of a single loop iteration
 		precise_t capbudget;
@@ -918,6 +954,7 @@ void D_SRB2Loop(void)
 		deltasecs = (double)((INT64)(finishprecise - enterprecise)) / I_GetPrecisePrecision();
 		deltatics = deltasecs * NEWTICRATE;
 	}
+	return;
 }
 
 //
@@ -981,6 +1018,7 @@ void D_StartTitle(void)
 	emeralds = 0;
 	memset(&luabanks, 0, sizeof(luabanks));
 	lastmaploaded = 0;
+	pickedchar = R_SkinAvailable(cv_skin.string);
 
 	// In case someone exits out at the same time they start a time attack run,
 	// reset modeattacking
@@ -1021,7 +1059,7 @@ void D_StartTitle(void)
 #define REALLOC_FILE_LIST \
 	if (list->files == NULL) \
 	{ \
-		list->files = calloc(sizeof(list->files), 2); \
+		list->files = calloc(2, sizeof(list->files)); \
 		list->numfiles = 1; \
 	} \
 	else \
@@ -1176,8 +1214,8 @@ static void IdentifyVersion(void)
 	// Add the maps
 	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "zones.pk3"));
 
-	// Add the players
-	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "player.dta"));
+	// Add the characters
+	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "characters.pk3"));
 
 #ifdef USE_PATCH_DTA
 	// Add our crappy patches to fix our bugs
@@ -1196,7 +1234,7 @@ static void IdentifyVersion(void)
 				I_Error("File "str" has been modified with non-music/sound lumps"); \
 		}
 
-		MUSICTEST("music.dta")
+		MUSICTEST("music.pk3")
 		//MUSICTEST("patch_music.pk3")
 	}
 #endif
@@ -1247,7 +1285,7 @@ void D_SRB2Main(void)
 	// Print GPL notice for our console users (Linux)
 	CONS_Printf(
 	"\n\nSonic Robo Blast 2\n"
-	"Copyright (C) 1998-2023 by Sonic Team Junior\n\n"
+	"Copyright (C) 1998-2025 by Sonic Team Junior\n\n"
 	"This program comes with ABSOLUTELY NO WARRANTY.\n\n"
 	"This is free software, and you are welcome to redistribute it\n"
 	"and/or modify it under the terms of the GNU General Public License\n"
@@ -1293,7 +1331,7 @@ void D_SRB2Main(void)
 #endif
 
 	// for dedicated server
-#if !defined (_WINDOWS) //already check in win_main.c
+#if !defined (_WINDOWS) && !defined (DEDICATED) //already check in win_main.c
 	dedicated = M_CheckParm("-dedicated") != 0;
 #endif
 
@@ -1428,11 +1466,7 @@ void D_SRB2Main(void)
 	// Make backups of some SOCcable tables.
 	P_BackupTables();
 
-	// Setup character tables
-	// Have to be done here before files are loaded
-	M_InitCharacterTables();
-
-	mainwads = 3; // doesn't include music.dta
+	mainwads = 3; // doesn't include music.pk3
 #ifdef USE_PATCH_DTA
 	mainwads++;
 #endif
@@ -1447,11 +1481,11 @@ void D_SRB2Main(void)
 	// Check MD5s of autoloaded files
 	W_VerifyFileMD5(0, ASSET_HASH_SRB2_PK3); // srb2.pk3
 	W_VerifyFileMD5(1, ASSET_HASH_ZONES_PK3); // zones.pk3
-	W_VerifyFileMD5(2, ASSET_HASH_PLAYER_DTA); // player.dta
+	W_VerifyFileMD5(2, ASSET_HASH_CHARACTERS_PK3); // characters.pk3
 #ifdef USE_PATCH_DTA
 	W_VerifyFileMD5(3, ASSET_HASH_PATCH_PK3); // patch.pk3
 #endif
-	// don't check music.dta because people like to modify it, and it doesn't matter if they do
+	// don't check music.pk3 because people like to modify it, and it doesn't matter if they do
 	// ...except it does if they slip maps in there, and that's what W_VerifyNMUSlumps is for.
 #endif //ifndef DEVELOP
 
@@ -1473,6 +1507,8 @@ void D_SRB2Main(void)
 	//--------------------------------------------------------- CONSOLE
 	// setup loading screen
 	SCR_Startup();
+
+	PaletteRemap_Init();
 
 	HU_Init();
 
@@ -1512,9 +1548,7 @@ void D_SRB2Main(void)
 	G_LoadGameData(clientGamedata);
 	M_CopyGameData(serverGamedata, clientGamedata);
 
-#if defined (__unix__) || defined (UNIXCOMMON) || defined (HAVE_SDL)
 	VID_PrepareModeList(); // Regenerate Modelist according to cv_fullscreen
-#endif
 
 	// set user default mode or mode set at cmdline
 	SCR_CheckDefaultMode();
@@ -1536,7 +1570,7 @@ void D_SRB2Main(void)
 			I_Error("Cannot find a map remotely named '%s'\n", word);
 		else
 		{
-			if (!M_CheckParm("-server"))
+			if (!(M_CheckParm("-server") || dedicated))
 				G_SetUsedCheats(true);
 			autostart = true;
 		}
@@ -1601,7 +1635,7 @@ void D_SRB2Main(void)
 	{
 		if (!M_IsNextParm())
 			I_Error("usage: -room <room_id>\nCheck the Master Server's webpage for room ID numbers.\n");
-		ms_RoomId = atoi(M_GetNextParm());
+		CV_SetValue(&cv_masterserver_room_id, atoi(M_GetNextParm()));
 
 #ifdef UPDATE_ALERT
 		GetMODVersion_Console();
@@ -1612,6 +1646,9 @@ void D_SRB2Main(void)
 	CONS_Printf("D_CheckNetGame(): Checking network game status.\n");
 	if (D_CheckNetGame())
 		autostart = true;
+
+	if (!dedicated)
+		pickedchar = R_SkinAvailable(cv_defaultskin.string);
 
 	// check for a driver that wants intermission stats
 	// start the apropriate game based on parms
@@ -1840,17 +1877,21 @@ static boolean check_top_dir(const char **path, const char *top)
 	return true;
 }
 
-static int cmp_strlen_desc(const void *a, const void *b)
+static int cmp_strlen_desc(const void *A, const void *B)
 {
-	return ((int)strlen(*(const char*const*)b) - (int)strlen(*(const char*const*)a));
+	const char *pA = A;
+	const char *pB = B;
+	size_t As = strlen(pA);
+	size_t Bs = strlen(pB);
+	return ((int)Bs - (int)As);
 }
 
 boolean D_IsPathAllowed(const char *path)
 {
-	const char *paths[] = {
+	char *paths[] = {
 		srb2home,
 		srb2path,
-		cv_addons_folder.string
+		cv_addons_folder.zstring
 	};
 
 	const size_t n_paths = sizeof paths / sizeof *paths;
