@@ -1686,6 +1686,7 @@ void D_ClientServerInit(void)
 	CV_RegisterVar(&cv_dumpconsistency);
 #endif
 	Ban_Load_File(false);
+	Banned_Word_Load_File(true);
 
 	gametic = 0;
 	localgametic = 0;

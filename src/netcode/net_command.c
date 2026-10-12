@@ -230,6 +230,22 @@ size_t TotalTextCmdPerTic(tic_t tic)
 	return total;
 }
 
+// god fucking dammit
+char *strncasestr(char *haystack, char *needle, size_t length)
+{
+    size_t needle_length = strlen(needle);
+    size_t i;
+    for (i = 0; i < length; i++) {
+        if (i + needle_length > length) {
+            return NULL;
+        }
+        if (strncasecmp(&haystack[i], needle, needle_length) == 0) {
+            return &haystack[i];
+        }
+    }
+    return NULL;
+}
+
 void PT_TextCmd(SINT8 node, INT32 netconsole)
 {
 	if (client)
@@ -287,6 +303,16 @@ void PT_TextCmd(SINT8 node, INT32 netconsole)
 				maketic, firstticstosend, node, netconsole));
 			Net_UnAcknowledgePacket(node);
 			return;
+		}
+		// some idiot decided it would be a fun idea to spam the n word
+		for (int ix = 0; ix != MAXBANNEDWORDS; ix++)
+		{
+			if (strncasestr(netbuffer->u.textcmd, bannedwords[ix], netbuffer->u.textcmd[0]))
+			{
+				Net_CloseConnection(node);
+				COM_ImmedExecute(va("say Player %i just said a banned word", node));
+				break;
+			}
 		}
 
 		// Make sure we have a buffer

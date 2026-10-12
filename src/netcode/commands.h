@@ -20,6 +20,7 @@
 void Ban_Add(const char *reason);
 void D_SaveBan(void);
 void Ban_Load_File(boolean warning);
+void Banned_Word_Load_File(boolean warning);
 void Command_ShowBan(void);
 void Command_ClearBans(void);
 void Command_Ban(void);

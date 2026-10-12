@@ -121,6 +121,30 @@ void Ban_Load_File(boolean warning)
 	fclose(f);
 }
 
+char bannedwords[MAXBANNEDWORDS][MAXPLAYERNAME];
+void Banned_Word_Load_File(boolean warning)
+{
+	FILE *f;
+	char buffer[MAX_WADPATH];
+
+	f = fopen(va("%s"PATHSEP"%s", srb2home, "banned-words.txt"), "r");
+
+	if (!f)
+	{
+		if (warning)
+			CONS_Alert(CONS_WARNING, M_GetText("Could not open banned-words.txt for banned word list\n"));
+		return;
+	}
+
+	for (int i = 0; fgets(buffer, (int)sizeof(buffer), f) || i != MAXBANNEDWORDS; i++)
+	{
+		strtok(buffer, "\n");
+		sprintf(bannedwords[i], "%s", buffer);
+	}
+
+	fclose(f);
+}
+
 void D_SaveBan(void)
 {
 	FILE *f;
