@@ -258,6 +258,7 @@ static void JoyReset(SDLJoyInfo_t *JoySet)
 		SDL_GameControllerClose(JoySet->dev1);
 	}
 	JoySet->dev = NULL;
+	JoySet->dev1 = NULL;
 	JoySet->oldjoy = -1;
 	JoySet->axises = JoySet->buttons = JoySet->hats = JoySet->balls = 0;
 	JoySet->gyro = false;

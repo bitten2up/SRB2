@@ -956,6 +956,23 @@ static void Impl_HandleControllerSensorEvent(SDL_ControllerSensorEvent evt)
 // - -Z ... +Z : farther ... closer
   if (evt.sensor != SDL_SENSOR_GYRO)
     return;
+	event_t event;
+	SDL_JoystickID joyid[2];
+
+	// Determine the Joystick IDs for each current open joystick
+	joyid[0] = SDL_JoystickInstanceID(JoyInfo.dev);
+	joyid[1] = SDL_JoystickInstanceID(JoyInfo2.dev);
+
+	if (evt.which == joyid[0])
+	{
+		event.type = ev_joystick;
+	}
+	else if (evt.which == joyid[1])
+	{
+		event.type = ev_joystick2;
+		return;
+	}
+	else return;
 	if (ShouldGrabMouse() && JoyInfo.gyro)
 	{
   	mousemovex -= (INT32)(evt.data[1]*((cv_gyrosens.value*cv_gyrosens.value)/110.0f + 0.1f));
@@ -1134,7 +1151,7 @@ void I_GetEvent(void)
 						SDL_JoystickClose(newjoy);
 				}
 				break;
-			case SDL_JOYDEVICEREMOVED:
+			case SDL_CONTROLLERDEVICEREMOVED:
 				if (JoyInfo.dev && !SDL_JoystickGetAttached(JoyInfo.dev))
 				{
 					CONS_Debug(DBG_GAMELOGIC, "Joystick1 removed, device index: %d\n", JoyInfo.oldjoy);
