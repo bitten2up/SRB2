@@ -36,7 +36,7 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 EXPORT void HWRAPI(DrawIndexedTriangles) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUINT iNumPts, FBITFIELD PolyFlags, UINT32 *IndexArray);
 EXPORT void HWRAPI(RenderSkyDome) (gl_sky_t *sky);
 EXPORT void HWRAPI(SetBlend) (FBITFIELD PolyFlags);
-EXPORT void HWRAPI(ClearBuffer) (FBOOLEAN ColorMask, FBOOLEAN DepthMask, FRGBAFloat *ClearColor);
+EXPORT void HWRAPI(ClearBuffer) (FBOOLEAN ColorMask, FBOOLEAN DepthMask, FBOOLEAN StencilMask, FRGBAFloat *ClearColor);
 EXPORT void HWRAPI(SetTexture) (GLMipmap_t *TexInfo);
 EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *TexInfo);
 EXPORT void HWRAPI(DeleteTexture) (GLMipmap_t *TexInfo);
@@ -45,6 +45,7 @@ EXPORT void HWRAPI(GClipRect) (INT32 minx, INT32 miny, INT32 maxx, INT32 maxy, f
 EXPORT void HWRAPI(ClearMipMapCache) (void);
 
 EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value);
+EXPORT void HWRAPI(SetStencilMode) (hwdstencilmode_t mode, INT32 ref);
 
 //Hurdler: added for new development
 EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface);
@@ -99,6 +100,7 @@ struct hwdriver_s
 	GClipRect           pfnGClipRect;
 	ClearMipMapCache    pfnClearMipMapCache;
 	SetSpecialState     pfnSetSpecialState;
+	SetStencilMode      pfnSetStencilMode;
 	DrawModel           pfnDrawModel;
 	CreateModelVBOs     pfnCreateModelVBOs;
 	SetTransform        pfnSetTransform;

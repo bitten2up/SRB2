@@ -57,7 +57,6 @@ static GLuint NOTEXTURE_NUM = 0;
 #define      N_PI_DEMI               (M_PIl/2.0f) //(1.5707963268f)
 
 #define      ASPECT_RATIO            (1.0f)  //(320.0f/200.0f)
-#define      FAR_CLIPPING_PLANE      32768.0f // Draw further! Tails 01-21-2001
 static float NEAR_CLIPPING_PLANE =   NZCLIP_PLANE;
 
 // **************************************************************************
@@ -244,6 +243,10 @@ FUNCPRINTF static void GL_MSG_Error(const char *format, ...)
 #define pglDepthMask glDepthMask
 #define pglDepthRange glDepthRange
 
+/* Stencil Buffer */
+#define pglStencilFunc glStencilFunc
+#define pglStencilOp glStencilOp
+
 /* Transformation */
 #define pglMatrixMode glMatrixMode
 #define pglViewport glViewport
@@ -329,6 +332,13 @@ typedef void (APIENTRY * PFNglDepthMask) (GLboolean flag);
 static PFNglDepthMask pglDepthMask;
 typedef void (APIENTRY * PFNglDepthRange) (GLclampd near_val, GLclampd far_val);
 static PFNglDepthRange pglDepthRange;
+
+/* Stencil Buffer */
+typedef void (APIENTRY * PFNglStencilFunc) (GLenum func, GLint ref, GLuint mask);
+static PFNglStencilFunc pglStencilFunc;
+typedef void (APIENTRY * PFNglStencilOp) (GLenum sfail, GLenum dpfail, GLenum dppass);
+static PFNglStencilOp pglStencilOp;
+
 
 /* Transformation */
 typedef void (APIENTRY * PFNglMatrixMode) (GLenum mode);
@@ -507,6 +517,9 @@ boolean SetupGLfunc(void)
 	GETOPENGLFUNC(pglDepthFunc, glDepthFunc)
 	GETOPENGLFUNC(pglDepthMask, glDepthMask)
 	GETOPENGLFUNC(pglDepthRange, glDepthRange)
+	
+	GETOPENGLFUNC(pglStencilFunc, glStencilFunc);
+	GETOPENGLFUNC(pglStencilOp, glStencilOp);
 
 	GETOPENGLFUNC(pglMatrixMode, glMatrixMode)
 	GETOPENGLFUNC(pglViewport, glViewport)
@@ -998,6 +1011,7 @@ void SetStates(void)
 
 	//pglDisable(GL_DITHER);         // faB: ??? (undocumented in OpenGL 1.1)
 	                              // Hurdler: yes, it is!
+	pglEnable(GL_STENCIL_TEST);		// enable stencil mask
 	pglEnable(GL_DEPTH_TEST);    // check the depth buffer
 	pglDepthMask(GL_TRUE);             // enable writing to depth buffer
 	pglClearDepth(1.0f);
@@ -1206,10 +1220,11 @@ EXPORT void HWRAPI(GClipRect) (INT32 minx, INT32 miny, INT32 maxx, INT32 maxy, f
 
 
 // -----------------+
-// ClearBuffer      : Clear the color/alpha/depth buffer(s)
+// ClearBuffer      : Clear the color/alpha/depth/stencil buffer(s)
 // -----------------+
 EXPORT void HWRAPI(ClearBuffer) (FBOOLEAN ColorMask,
                                     FBOOLEAN DepthMask,
+																		FBOOLEAN StencilMask,
                                     FRGBAFloat * ClearColor)
 {
 	// GL_DBG_Printf ("ClearBuffer(%d)\n", alpha);
@@ -1231,6 +1246,8 @@ EXPORT void HWRAPI(ClearBuffer) (FBOOLEAN ColorMask,
 		pglDepthFunc(GL_LEQUAL);
 		ClearMask |= GL_DEPTH_BUFFER_BIT;
 	}
+	if (StencilMask)
+		ClearMask |= GL_STENCIL_BUFFER_BIT;
 
 	SetBlend(DepthMask ? PF_Occlude | CurrentPolyFlags : CurrentPolyFlags&~PF_Occlude);
 
@@ -2261,6 +2278,29 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 	}
 }
 
+EXPORT void HWRAPI(SetStencilMode) (hwdstencilmode_t mode, INT32 ref)
+{
+	switch (mode)
+	{
+		case HWD_STENCIL_INACTIVE:
+			pglStencilFunc(GL_ALWAYS, ref, 0xFF);
+			pglStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+			break;
+		case HWD_STENCIL_PORTAL_BEGIN:
+			pglStencilFunc(GL_EQUAL, ref, 0xFF);
+			pglStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+			break;
+		case HWD_STENCIL_PORTAL_INSIDE:
+			pglStencilFunc(GL_EQUAL, ref, 0xFF);
+			pglStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+			break;
+		case HWD_STENCIL_PORTAL_FINISH:
+			pglStencilFunc(GL_EQUAL, ref, 0xFF);
+			pglStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
+			break;
+	}
+}
+
 static float *vertBuffer = NULL;
 static float *normBuffer = NULL;
 static size_t lerpBufferSize = 0;
@@ -3190,7 +3230,7 @@ EXPORT void HWRAPI(DrawScreenFinalTexture)(int tex, int width, int height)
 
 	clearColour.red = clearColour.green = clearColour.blue = 0;
 	clearColour.alpha = 1;
-	ClearBuffer(true, false, &clearColour);
+	ClearBuffer(true, false, false, &clearColour);
 	SetBlend(PF_NoDepthTest);
 	pglBindTexture(GL_TEXTURE_2D, screenTextures[tex]);
 

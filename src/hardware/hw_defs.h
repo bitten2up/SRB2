@@ -15,6 +15,7 @@
 #include "../doomtype.h"
 #include "../r_defs.h"
 
+#define      FAR_CLIPPING_PLANE      32768.0f // Draw further! Tails 01-21-2001
 #define ZCLIP_PLANE 4.0f // Used for the actual game drawing
 #define NZCLIP_PLANE 0.9f // Seems to be only used for the HUD and screen textures
 
@@ -296,6 +297,17 @@ enum hwdsetspecialstate
 };
 
 typedef enum hwdsetspecialstate hwdspecialstate_t;
+
+// Modes for SetStencilMode
+enum hwdstencilmode
+{
+	HWD_STENCIL_INACTIVE,
+	HWD_STENCIL_PORTAL_BEGIN,
+	HWD_STENCIL_PORTAL_INSIDE,
+	HWD_STENCIL_PORTAL_FINISH
+};
+
+typedef enum hwdstencilmode hwdstencilmode_t;
 
 enum hwdshaderstage
 {

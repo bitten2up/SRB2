@@ -91,6 +91,7 @@ void *hwSym(const char *funcName,void *handle)
 	GETFUNC(GClipRect);
 	GETFUNC(ClearMipMapCache);
 	GETFUNC(SetSpecialState);
+	GETFUNC(SetStencilMode);
 	GETFUNC(GetTextureUsed);
 	GETFUNC(DrawModel);
 	GETFUNC(CreateModelVBOs);

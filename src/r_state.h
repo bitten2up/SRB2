@@ -91,6 +91,8 @@ extern player_t *viewplayer;
 extern mobj_t *r_viewmobj;
 
 extern consvar_t cv_allowmlook;
+
+#define MAXPORTALS_CAP 12
 extern consvar_t cv_maxportals;
 
 extern angle_t clipangle;

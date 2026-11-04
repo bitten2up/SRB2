@@ -1673,6 +1673,9 @@ static SDL_bool Impl_CreateWindow(SDL_bool fullscreen)
 	// Some GPU drivers may give us a 16-bit depth buffer since the
 	// default value for SDL_GL_DEPTH_SIZE is 16.
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+
+	// Stencil buffer for visual portals
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 #endif
 
 	// Create a window
@@ -1920,6 +1923,7 @@ void VID_StartupOpenGL(void)
 		HWD.pfnGClipRect        = hwSym("GClipRect",NULL);
 		HWD.pfnClearMipMapCache = hwSym("ClearMipMapCache",NULL);
 		HWD.pfnSetSpecialState  = hwSym("SetSpecialState",NULL);
+		HWD.pfnSetStencilMode		= hwSym("SetStencilMode",NULL);
 		HWD.pfnSetTexturePalette= hwSym("SetTexturePalette",NULL);
 		HWD.pfnGetTextureUsed   = hwSym("GetTextureUsed",NULL);
 		HWD.pfnDrawModel        = hwSym("DrawModel",NULL);

@@ -96,6 +96,7 @@ extern consvar_t cv_glslopecontrast;
 extern consvar_t cv_glbatching;
 extern consvar_t cv_glpaletterendering;
 extern consvar_t cv_glpalettedepth;
+extern consvar_t cv_gldebugportal;
 
 extern consvar_t cv_glwireframe;
 
@@ -127,5 +128,7 @@ extern boolean gl_maploaded;
 extern boolean gl_maptexturesloaded;
 extern boolean gl_sessioncommandsadded;
 extern boolean gl_shadersavailable;
+
+extern boolean gl_rendering_skybox;
 
 #endif

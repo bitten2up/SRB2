@@ -21,6 +21,7 @@
 #include "hw_batching.h"
 #include "hw_md2.h"
 #include "hw_clip.h"
+#include "hw_portals.h"
 
 #include "../i_video.h"
 #include "../v_video.h"
@@ -64,6 +65,7 @@ void HWR_AddTransparentPolyobjectFloor(levelflat_t *levelflat, polyobj_t *polyse
                              INT32 lightlevel, INT32 alpha, sector_t *FOFSector, FBITFIELD blend, extracolormap_t *planecolormap);
 
 static boolean drawsky = true;
+boolean gl_rendering_skybox = false;
 
 // ==========================================================================
 //                                                                    GLOBALS
@@ -72,7 +74,7 @@ static boolean drawsky = true;
 static seg_t *gl_curline;
 static side_t *gl_sidedef;
 static line_t *gl_linedef;
-static sector_t *gl_frontsector;
+sector_t *gl_frontsector;
 static sector_t *gl_backsector;
 
 // Render stats
@@ -684,7 +686,7 @@ FBITFIELD HWR_TranstableToAlpha(INT32 transtablenum, FSurfaceInfo *pSurf)
 	return PF_Translucent;
 }
 
-static void HWR_AddTransparentWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, INT32 texnum, FBITFIELD blend, boolean fogwall, INT32 lightlevel, extracolormap_t *wallcolormap);
+void HWR_AddTransparentWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, INT32 texnum, FBITFIELD blend, boolean fogwall, INT32 lightlevel, extracolormap_t *wallcolormap);
 
 // ==========================================================================
 // Wall generation from subsector segs
@@ -714,6 +716,12 @@ static void HWR_ProjectWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIEL
 	{
 		shader = SHADER_WALL;
 		blendmode |= PF_ColorMapped;
+	}
+	// don't draw to color buffer when drawing to stencil
+	if (gl_drawing_stencil)
+	{
+		blendmode |= PF_Invisible|PF_NoAlphaTest; // TODO not sure if any others than PF_Invisible are needed??
+		blendmode &= ~PF_Masked;
 	}
 
 	HWR_ProcessPolygon(pSurf, wallVerts, 4, blendmode|PF_Modulated|PF_Occlude, shader, false);
@@ -951,18 +959,17 @@ static boolean HWR_BlendMidtextureSurface(FSurfaceInfo *pSurf)
 
 	return true;
 }
-
+// gl_midtexture can be inactive for this function
+// when rendering twosided portal midtextures
 static void HWR_RenderMidtexture(INT32 gl_midtexture, float cliplow, float cliphigh, fixed_t worldtop, fixed_t worldbottom, fixed_t worldhigh, fixed_t worldlow, fixed_t worldtopslope, fixed_t worldbottomslope, fixed_t worldhighslope, fixed_t worldlowslope, UINT32 lightnum, FOutVector *inWallVerts)
 {
 	sector_t *front, *back;
 	FOutVector wallVerts[4];
+	fixed_t texheight,midtexheight;
+	INT32 repeats;
 
 	FSurfaceInfo Surf;
 	Surf.PolyColor.s.alpha = 255;
-
-	// Determine if it's visible
-	if (!HWR_BlendMidtextureSurface(&Surf))
-		return;
 
 	if (gl_linedef->frontsector->heightsec != -1)
 		front = &sectors[gl_linedef->frontsector->heightsec];
@@ -974,8 +981,12 @@ static void HWR_RenderMidtexture(INT32 gl_midtexture, float cliplow, float cliph
 	else
 		back = gl_linedef->backsector;
 
-	fixed_t texheight = FixedDiv(textureheight[gl_midtexture], abs(gl_sidedef->scaley_mid));
-	INT32 repeats;
+	if (gl_midtexture){
+	// Determine if it's visible
+	if (!HWR_BlendMidtextureSurface(&Surf))
+		return;
+
+	texheight = FixedDiv(textureheight[gl_midtexture], abs(gl_sidedef->scaley_mid));
 
 	if (gl_sidedef->repeatcnt)
 		repeats = 1 + gl_sidedef->repeatcnt;
@@ -999,6 +1010,7 @@ static void HWR_RenderMidtexture(INT32 gl_midtexture, float cliplow, float cliph
 	}
 	else
 		repeats = 1;
+	}
 
 	GLMapTexture_t *grTex = HWR_GetTexture(gl_midtexture, true);
 	float xscale = FixedToFloat(gl_sidedef->scalex_mid);
@@ -1029,8 +1041,9 @@ static void HWR_RenderMidtexture(INT32 gl_midtexture, float cliplow, float cliph
 		popenbottomslope = max(worldbottomslope, worldlowslope);
 	}
 
+	if (gl_midtexture){
 	// Find the wall's coordinates
-	fixed_t midtexheight = texheight * repeats;
+	midtexheight = texheight * repeats;
 
 	fixed_t rowoffset = FixedDiv(gl_sidedef->rowoffset + gl_sidedef->offsety_mid, abs(gl_sidedef->scaley_mid));
 
@@ -1070,6 +1083,13 @@ static void HWR_RenderMidtexture(INT32 gl_midtexture, float cliplow, float cliph
 		polytopslope = popentopslope + rowoffset;
 		polybottomslope = polytopslope - midtexheight;
 	}
+	}
+	else
+	{
+		// portal stencil twosided midtexture, fills entire space
+		polytop = polytopslope = popentop;
+		polybottom = polybottomslope = popenbottom;
+	}
 
 	// The cut-off values of a linedef can always be constant, since every line has an absoulute front and or back sector
 	if (gl_curline->polyseg)
@@ -1092,6 +1112,8 @@ static void HWR_RenderMidtexture(INT32 gl_midtexture, float cliplow, float cliph
 	fixed_t hS = min(highcutslope, polytopslope);
 	fixed_t lS = max(polybottomslope, lowcutslope);
 
+	// gl_midtexture can be inactive when rendering twosided portal midtextures
+	if (gl_midtexture){
 	// PEGGING
 	fixed_t texturevpeg, texturevpegslope;
 
@@ -1117,6 +1139,7 @@ static void HWR_RenderMidtexture(INT32 gl_midtexture, float cliplow, float cliph
 	wallVerts[2].t = texturevpegslope * yscale * grTex->scaleY;
 	wallVerts[1].t = (hS - lS + texturevpegslope) * yscale * grTex->scaleY;
 	wallVerts[2].s = wallVerts[1].s = ((cliphigh * xscale) + gl_sidedef->textureoffset + gl_sidedef->offsetx_mid) * grTex->scaleX;
+	}
 
 	// set top/bottom coords
 	// Take the texture peg into account, rather than changing the offsets past
@@ -1135,9 +1158,9 @@ static void HWR_RenderMidtexture(INT32 gl_midtexture, float cliplow, float cliph
 
 	extracolormap_t *colormap = gl_frontsector->extra_colormap;
 
-	if (gl_frontsector->numlights)
+	if (!gl_drawing_stencil && gl_frontsector->numlights)
 	{
-		if (!(blendmode & PF_Masked))
+		if (!gl_drawing_stencil && !(blendmode & PF_Masked))
 			HWR_SplitWall(gl_frontsector, wallVerts, gl_midtexture, &Surf, FOF_TRANSLUCENT, NULL, blendmode);
 		else
 			HWR_SplitWall(gl_frontsector, wallVerts, gl_midtexture, &Surf, FOF_CUTLEVEL, NULL, blendmode);
@@ -1196,7 +1219,6 @@ static void HWR_ProcessSeg(void)
 #define SLOPEPARAMS(slope, end1, end2, normalheight) \
 	end1 = P_GetZAt(slope, v1x, v1y, normalheight); \
 	end2 = P_GetZAt(slope, v2x, v2y, normalheight);
-
 	SLOPEPARAMS(gl_frontsector->c_slope, worldtop,    worldtopslope,    gl_frontsector->ceilingheight)
 	SLOPEPARAMS(gl_frontsector->f_slope, worldbottom, worldbottomslope, gl_frontsector->floorheight)
 
@@ -1338,9 +1360,9 @@ static void HWR_ProcessSeg(void)
 			wallVerts[2].y = FIXED_TO_FLOAT(worldtopslope);
 			wallVerts[1].y = FIXED_TO_FLOAT(worldhighslope);
 
-			if (gl_frontsector->numlights)
+			if (!gl_drawing_stencil && gl_frontsector->numlights)
 				HWR_SplitWall(gl_frontsector, wallVerts, gl_toptexture, &Surf, FOF_CUTLEVEL, NULL, 0);
-			else if (grTex->mipmap.flags & TF_TRANSPARENT)
+			else if (!gl_drawing_stencil && grTex->mipmap.flags & TF_TRANSPARENT)
 				HWR_AddTransparentWall(wallVerts, &Surf, gl_toptexture, PF_Environment, false, lightnum, colormap);
 			else
 				HWR_ProjectWall(wallVerts, &Surf, PF_Masked, lightnum, colormap);
@@ -1423,16 +1445,18 @@ static void HWR_ProcessSeg(void)
 			wallVerts[2].y = FIXED_TO_FLOAT(worldlowslope);
 			wallVerts[1].y = FIXED_TO_FLOAT(worldbottomslope);
 
-			if (gl_frontsector->numlights)
+			if (!gl_drawing_stencil && gl_frontsector->numlights)
 				HWR_SplitWall(gl_frontsector, wallVerts, gl_bottomtexture, &Surf, FOF_CUTLEVEL, NULL, 0);
-			else if (grTex->mipmap.flags & TF_TRANSPARENT)
+			else if (!gl_drawing_stencil && grTex->mipmap.flags & TF_TRANSPARENT)
 				HWR_AddTransparentWall(wallVerts, &Surf, gl_bottomtexture, PF_Environment, false, lightnum, colormap);
 			else
 				HWR_ProjectWall(wallVerts, &Surf, PF_Masked, lightnum, colormap);
 		}
 
 		// Render midtexture if there's one
-		if (gl_midtexture)
+		// twosided midtexture goes to stencil even if there's no midtexture
+		// (software also renders twosided midtexture portals like this)
+		if (gl_midtexture || gl_drawing_stencil)
 			HWR_RenderMidtexture(gl_midtexture, cliplow, cliphigh, worldtop, worldbottom, worldhigh, worldlow, worldtopslope, worldbottomslope, worldhighslope, worldlowslope, lightnum, wallVerts);
 
 		if (!gl_curline->polyseg) // Don't do it for polyobjects
@@ -1506,11 +1530,11 @@ static void HWR_ProcessSeg(void)
 			wallVerts[1].y = FIXED_TO_FLOAT(worldbottomslope);
 
 			// I don't think that solid walls can use translucent linedef types...
-			if (gl_frontsector->numlights)
+			if (!gl_drawing_stencil && gl_frontsector->numlights)
 				HWR_SplitWall(gl_frontsector, wallVerts, gl_midtexture, &Surf, FOF_CUTLEVEL, NULL, 0);
 			else
 			{
-				if (grTex->mipmap.flags & TF_TRANSPARENT)
+				if (!gl_drawing_stencil && grTex->mipmap.flags & TF_TRANSPARENT)
 					HWR_AddTransparentWall(wallVerts, &Surf, gl_midtexture, PF_Environment, false, lightnum, colormap);
 				else
 					HWR_ProjectWall(wallVerts, &Surf, PF_Masked, lightnum, colormap);
@@ -1537,7 +1561,7 @@ static void HWR_ProcessSeg(void)
 	}
 
 	//Hurdler: 3d-floors test
-	if (gl_backsector && !Tag_Compare(&gl_frontsector->tags, &gl_backsector->tags) && (gl_backsector->ffloors || gl_frontsector->ffloors))
+	if (!gl_drawing_stencil && gl_backsector && !Tag_Compare(&gl_frontsector->tags, &gl_backsector->tags) && (gl_backsector->ffloors || gl_frontsector->ffloors))
 	{
 		ffloor_t * rover;
 		fixed_t    highcut = 0, lowcut = 0;
@@ -1970,6 +1994,25 @@ static boolean CheckClip(seg_t * seg, sector_t * afrontsector, sector_t * abacks
 	return false;
 }
 
+// returns true if the point is on the correct (viewable) side of the
+// portal destination line
+static boolean HWR_PortalCheckPointSide(fixed_t x, fixed_t y)
+{
+	// we are checking if the point is on the viewable side of the portal exit.
+	// being exactly on the portal exit line is not enough to pass the test.
+	// P_PointOnLineSide could behave differently from this expectation on this case,
+	// so first check if the point is precisely on the line, and then if not, check the side.
+
+	vertex_t closest_point;
+	P_ClosestPointOnLine(x, y, gl_portalclipline, &closest_point);
+	if (closest_point.x != x || closest_point.y != y)
+	{
+		if (P_PointOnLineSide(x, y, gl_portalclipline) != 1)
+			return true;
+	}
+	return false;
+}
+
 // -----------------+
 // HWR_AddLine      : Clips the given segment and adds any visible pieces to the line list.
 // Notes            : gl_cursectorlight is set to the current subsector -> sector -> light value
@@ -1978,6 +2021,7 @@ static boolean CheckClip(seg_t * seg, sector_t * afrontsector, sector_t * abacks
 static void HWR_AddLine(seg_t * line)
 {
 	angle_t angle1, angle2;
+	boolean skipseg = false;
 
 	// SoM: Backsector needs to be run through R_FakeFlat
 	static sector_t tempsec;
@@ -2027,6 +2071,42 @@ static void HWR_AddLine(seg_t * line)
 	checkforemptylines = true;
 
 	gl_backsector = line->backsector;
+		// do extra checks on the seg when rendering portals:
+	// don't render segs that are behind the portal destination line
+	if (gl_portalclipline &&
+				!HWR_PortalCheckPointSide(line->v1->x, line->v1->y) &&
+				!HWR_PortalCheckPointSide(line->v2->x, line->v2->y))
+	{
+		return;
+	}
+
+	// Portal line
+	if (line->linedef->special == 40 && line->side == 0)
+	{
+		size_t p;
+		mtag_t tag = Tag_FGet(&line->linedef->tags);
+		INT32 li1 = line->linedef-lines;
+		INT32 li2;
+
+		for (p = 0; (li2 = Tag_Iterate_Lines(tag, p)) >= 0; p++)
+		{
+			// Skip invalid lines.
+			if ((tag != Tag_FGet(&lines[li2].tags)) || (lines[li1].special != lines[li2].special) || (li1 == li2))
+				continue;
+
+			// call will bail and return false if recursion limit is reached
+			if (HWR_AddPortal(&lines[li1], &lines[li2], line))
+			{
+				skipseg = true; // TODO could this cause unintentional disappearing of some walls?
+				if (gl_printportals && !gl_portal_level && !gl_rendering_skybox)
+				{
+					// print some info about first level portals
+					CONS_Printf("line %d -> line %d\n", li1, li2);
+				}
+			}
+		}
+	}
+
 	bothceilingssky = bothfloorssky = false;
 
 	if (!line->backsector)
@@ -2047,7 +2127,7 @@ static void HWR_AddLine(seg_t * line)
 
 		if (bothceilingssky && bothfloorssky) // everything's sky? let's save us a bit of time then
 		{
-			if (!line->polyseg &&
+			if (!gl_drawing_stencil && !line->polyseg &&
 				!line->sidedef->midtexture
 				&& ((!gl_frontsector->ffloors && !gl_backsector->ffloors)
 					|| Tag_Compare(&gl_frontsector->tags, &gl_backsector->tags)))
@@ -2070,7 +2150,8 @@ static void HWR_AddLine(seg_t * line)
 			return;
     }
 
-	HWR_ProcessSeg(); // Doesn't need arguments because they're defined globally :D
+	if (!skipseg)
+		HWR_ProcessSeg(); // Doesn't need arguments because they're defined globally :D
 }
 
 // HWR_CheckBBox
@@ -2113,6 +2194,25 @@ static boolean HWR_CheckBBox(fixed_t *bspcoord)
 	angle1 = R_PointToAngle64(px1, py1);
 	angle2 = R_PointToAngle64(px2, py2);
 	return gld_clipper_SafeCheckRange(angle2, angle1);
+}
+
+// Check if bounding box is (partially or fully) in the correct side
+// of the portal destination.
+static boolean HWR_PortalCheckBBox(fixed_t *bspcoord)
+{
+	if (!gl_portalclipline)
+		return true;
+
+	if (HWR_PortalCheckPointSide(bspcoord[BOXLEFT], bspcoord[BOXTOP]) ||
+			HWR_PortalCheckPointSide(bspcoord[BOXLEFT], bspcoord[BOXBOTTOM]) ||
+			HWR_PortalCheckPointSide(bspcoord[BOXRIGHT], bspcoord[BOXTOP]) ||
+			HWR_PortalCheckPointSide(bspcoord[BOXRIGHT], bspcoord[BOXBOTTOM]))
+	{
+		return true;
+	}
+
+	// we did not find any reason to pass the check, so return failure
+	return false;
 }
 
 //
@@ -2688,6 +2788,15 @@ static void HWR_RenderBSPNode(INT32 bspnum)
 		}
 		else
 		{
+			if (gl_portalcullsector)
+			{
+				// skip all subsectors encountered before the portal
+				// destination's front sector
+				if (gl_portalcullsector != subsectors[bspnum & ~NF_SUBSECTOR].sector)
+					return;
+				else
+					gl_portalcullsector = NULL;
+			}
 			//*(gl_drawsubsector_p++) = bspnum&(~NF_SUBSECTOR);
 			HWR_Subsector(bspnum&(~NF_SUBSECTOR));
 		}
@@ -2700,11 +2809,12 @@ static void HWR_RenderBSPNode(INT32 bspnum)
 	// BP: big hack for a test in lighning ref : 1249753487AB
 	hwbbox = bsp->bbox[side];
 
-	// Recursively divide front space.
-	HWR_RenderBSPNode(bsp->children[side]);
+	// Recursively divide front space. Possibly not when rendering a portal.
+	if (HWR_PortalCheckBBox(bsp->bbox[side]))
+		HWR_RenderBSPNode(bsp->children[side]);
 
 	// Possibly divide back space.
-	if (HWR_CheckBBox(bsp->bbox[side^1]))
+	if (HWR_CheckBBox(bsp->bbox[side^1]) && HWR_PortalCheckBBox(bsp->bbox[side^1]))
 	{
 		// BP: big hack for a test in lighning ref : 1249753487AB
 		hwbbox = bsp->bbox[side^1];
@@ -3868,8 +3978,36 @@ static void HWR_SortVisSprites(void)
 }
 
 // A drawnode is something that points to a 3D floor, 3D side, or masked
-// middle texture. This is used for sorting with sprites.
+// initial size of drawnode array
+#define DRAWNODES_INIT_SIZE 64
+
+typedef struct gl_drawnode_s gl_drawnode_t;
+typedef struct wallinfo_s wallinfo_t;
+typedef struct planeinfo_s planeinfo_t;
+typedef struct polyplaneinfo_s polyplaneinfo_t;
+
 typedef struct
+{
+	size_t numwalls;
+	size_t allocedwalls;
+	wallinfo_t *wallinfo;
+
+	size_t numplanes;
+	size_t allocedplanes;
+	planeinfo_t *planeinfo;
+
+	size_t numpolyplanes;
+	size_t allocedpolyplanes;
+	polyplaneinfo_t *polyplaneinfo;
+} gl_drawnode_state_t;
+
+// portal rendering will push and pop this stack
+// to keep multiple drawnode lists around until they're needed
+static gl_drawnode_state_t state_stack[MAXPORTALS_CAP+1] = {0};
+static int stack_level = 0;
+static gl_drawnode_state_t *cst = &state_stack[0]; // current state
+// middle texture. This is used for sorting with sprites.
+struct wallinfo_s
 {
 	FOutVector    wallVerts[4];
 	FSurfaceInfo  Surf;
@@ -3879,16 +4017,16 @@ typedef struct
 	boolean fogwall;
 	INT32 lightlevel;
 	extracolormap_t *wallcolormap; // Doing the lighting in HWR_RenderWall now for correct fog after sorting
-} wallinfo_t;
+};
 
-static wallinfo_t *wallinfo = NULL;
-static size_t numwalls = 0; // a list of transparent walls to be drawn
+#define numwalls cst->numwalls
+#define wallinfo cst->wallinfo
 
 void HWR_RenderWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend, boolean fogwall, INT32 lightlevel, extracolormap_t *wallcolormap);
 
 #define MAX_TRANSPARENTWALL 256
 
-typedef struct
+struct planeinfo_s
 {
 	extrasubsector_t *xsub;
 	boolean isceiling;
@@ -3902,12 +4040,12 @@ typedef struct
 	boolean chromakeyed;
 	extracolormap_t *planecolormap;
 	INT32 drawcount;
-} planeinfo_t;
+};
 
-static size_t numplanes = 0; // a list of transparent floors to be drawn
-static planeinfo_t *planeinfo = NULL;
+#define numplanes cst->numplanes
+#define planeinfo cst->planeinfo
 
-typedef struct
+struct polyplaneinfo_s
 {
 	polyobj_t *polysector;
 	boolean isceiling;
@@ -3919,10 +4057,10 @@ typedef struct
 	FBITFIELD blend;
 	extracolormap_t *planecolormap;
 	INT32 drawcount;
-} polyplaneinfo_t;
+};
 
-static size_t numpolyplanes = 0; // a list of transparent poyobject floors to be drawn
-static polyplaneinfo_t *polyplaneinfo = NULL;
+#define numpolyplanes cst->numpolyplanes
+#define polyplaneinfo cst->polyplaneinfo
 
 //Hurdler: 3D water sutffs
 typedef struct gl_drawnode_s
@@ -3943,16 +4081,14 @@ static INT32 drawcount = 0;
 // This will likely turn into a copy of HWR_Add3DWater and replace it.
 void HWR_AddTransparentFloor(levelflat_t *levelflat, extrasubsector_t *xsub, boolean isceiling, fixed_t fixedheight, INT32 lightlevel, INT32 alpha, sector_t *FOFSector, FBITFIELD blend, boolean fogplane, boolean chromakeyed, extracolormap_t *planecolormap)
 {
-	static size_t allocedplanes = 0;
-
 	// Force realloc if buffer has been freed
 	if (!planeinfo)
-		allocedplanes = 0;
+		cst->allocedplanes = 0;
 
-	if (allocedplanes < numplanes + 1)
+	if (cst->allocedplanes < numplanes + 1)
 	{
-		allocedplanes += MAX_TRANSPARENTFLOOR;
-		Z_Realloc(planeinfo, allocedplanes * sizeof (*planeinfo), PU_LEVEL, &planeinfo);
+		cst->allocedplanes += MAX_TRANSPARENTFLOOR;
+		Z_Realloc(planeinfo, cst->allocedplanes * sizeof (*planeinfo), PU_LEVEL, &planeinfo);
 	}
 
 	planeinfo[numplanes].isceiling = isceiling;
@@ -3975,16 +4111,14 @@ void HWR_AddTransparentFloor(levelflat_t *levelflat, extrasubsector_t *xsub, boo
 // When that happens it'll just be done through HWR_AddTransparentFloor and HWR_RenderPlane
 void HWR_AddTransparentPolyobjectFloor(levelflat_t *levelflat, polyobj_t *polysector, boolean isceiling, fixed_t fixedheight, INT32 lightlevel, INT32 alpha, sector_t *FOFSector, FBITFIELD blend, extracolormap_t *planecolormap)
 {
-	static size_t allocedpolyplanes = 0;
-
 	// Force realloc if buffer has been freed
 	if (!polyplaneinfo)
-		allocedpolyplanes = 0;
+		cst->allocedpolyplanes = 0;
 
-	if (allocedpolyplanes < numpolyplanes + 1)
+	if (cst->allocedpolyplanes < numpolyplanes + 1)
 	{
-		allocedpolyplanes += MAX_TRANSPARENTFLOOR;
-		Z_Realloc(polyplaneinfo, allocedpolyplanes * sizeof (*polyplaneinfo), PU_LEVEL, &polyplaneinfo);
+		cst->allocedpolyplanes += MAX_TRANSPARENTFLOOR;
+		Z_Realloc(polyplaneinfo, cst->allocedpolyplanes * sizeof (*polyplaneinfo), PU_LEVEL, &polyplaneinfo);
 	}
 
 	polyplaneinfo[numpolyplanes].isceiling = isceiling;
@@ -4003,6 +4137,28 @@ void HWR_AddTransparentPolyobjectFloor(levelflat_t *levelflat, polyobj_t *polyse
 // putting sortindex and sortnode here so the comparator function can see them
 gl_drawnode_t *sortnode;
 size_t *sortindex;
+
+// pushes all drawnode rendering state to stack
+static void HWR_PushDrawNodeState(void)
+{
+	if (stack_level == MAXPORTALS_CAP)
+		I_Error("HWR_PushDrawNodeState: State stack overflow");
+
+	stack_level++;
+	cst++;
+	numwalls = 0; // a list of transparent walls to be drawn
+	numplanes = 0; // a list of transparent floors to be drawn
+	numpolyplanes = 0; // a list of transparent poyobject floors to be drawn
+}
+
+static void HWR_PopDrawNodeState(void)
+{
+	if (stack_level == 0)
+		I_Error("HWR_PopDrawNodeState: State stack underflow");
+
+	stack_level--;
+	cst--;
+}
 
 static int CompareDrawNodes(const void *p1, const void *p2)
 {
@@ -5259,7 +5415,7 @@ static inline void HWR_ClearView(void)
 	                 (INT32)(viewwindowx + viewwidth),
 	                 (INT32)(viewwindowy + viewheight),
 	                 ZCLIP_PLANE);
-	HWD.pfnClearBuffer(false, true, 0);
+	HWD.pfnClearBuffer(false, true, true, 0);
 
 	//disable clip window - set to full size
 	// rem by Hurdler
@@ -5305,6 +5461,44 @@ static void HWR_SetTransformAiming(FTransform *trans, player_t *player, boolean 
 static void HWR_SetShaderState(void)
 {
 	HWD.pfnSetSpecialState(HWD_SET_SHADERS, HWR_UseShader());
+}
+
+static void HWR_RenderPortalSeg(seg_t *seg)
+{
+	gl_drawing_stencil = true;
+	gl_curline = seg;
+	gl_frontsector = seg->frontsector;
+	gl_backsector = seg->backsector;
+	HWR_ProcessSeg();
+	gl_drawing_stencil = false;
+	// need to work around the r_opengl PF_Invisible bug with this call
+	// similarly as in the linkdraw hack in HWR_DrawSprites
+	HWD.pfnSetBlend(PF_Translucent|PF_Occlude|PF_Masked);
+}
+
+static void HWR_SetStencilState(INT32 state)
+{
+	HWD.pfnSetStencilMode(state, gl_portal_level);
+}
+
+// clear the depth buffer from the stenciled area so portal
+// content doesn't get clipped by previous buffer content
+// (glClear ignores the stencil buffer so can't be used for this purpose)
+static void HWR_RenderDepthEraser(boolean visible)
+{
+	FOutVector verts[4] = {0};
+	FBITFIELD blendflags = PF_Occlude|PF_NoDepthTest|PF_NoTexture;
+	if (!visible)
+		blendflags |= PF_Invisible;
+	// so this is apparently how you draw the far clipping plane when
+	// pfnSetTransform(NULL) is active
+	const float a = FAR_CLIPPING_PLANE;
+	verts[0].x = -a; verts[0].y = -a; verts[0].z = a;
+	verts[1].x = -a; verts[1].y =  a; verts[1].z = a;
+	verts[2].x =  a; verts[2].y =  a; verts[2].z = a;
+	verts[3].x =  a; verts[3].y = -a; verts[3].z = a;
+	HWD.pfnSetTransform(NULL);
+	HWD.pfnDrawPolygon(NULL, verts, 4, blendflags);
 }
 
 static void HWR_SetupView(player_t *player, INT32 viewnumber, float fpov, boolean skybox)
@@ -5471,45 +5665,50 @@ void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 	HWD.pfnGClipRect(0, 0, vid.width, vid.height, NZCLIP_PLANE);
 }
 
-// ==========================================================================
-//
-// ==========================================================================
-void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
+static void HWR_RenderViewpoint(player_t *player, boolean viewnumber, gl_portal_t *rootportal, boolean skybox);
+
+static void HWR_RenderPortal(gl_portal_t *portal, gl_portal_t *rootportal, player_t *player, boolean is_skybox,INT32 viewnumber)
 {
+	//HWR_PushSpriteState();
+	HWR_PushDrawNodeState();
+
+	if (!gl_debugportal)
+	{
+		HWR_SetStencilState(HWD_STENCIL_PORTAL_BEGIN);
+		HWR_RenderPortalSeg(portal->seg);
+	}
+
+	gl_portal_level++;
+	if (!gl_debugportal)
+		HWR_SetStencilState(HWD_STENCIL_PORTAL_INSIDE);
+
+	HWR_RenderDepthEraser(true);
+
+	HWR_PortalFrame(portal, true);
+	HWR_RenderViewpoint(player, viewnumber, portal, is_skybox);
+	// restore previous frame and transform
+	if (rootportal)
+		HWR_PortalFrame(rootportal, false);
+	HWR_SetupView(player, viewnumber, FIXED_TO_FLOAT(cv_fov.value+player->fovadd), is_skybox);
+	HWD.pfnSetTransform(&atransform);
+
+	if (!gl_debugportal)
+	{
+		HWR_SetStencilState(HWD_STENCIL_PORTAL_FINISH);
+		HWR_RenderPortalSeg(portal->seg);
+	}
+	gl_portal_level--;
+
+	//HWR_PopSpriteState();
+	HWR_PopDrawNodeState();
+}
+static void HWR_RenderViewpoint(player_t *player, boolean viewnumber, gl_portal_t *rootportal, boolean skybox)
+{
+	gl_portal_array_t *portal_array;
 	const float fpov = FixedToFloat(R_GetPlayerFov(player));
-
-	const boolean skybox = (skyboxmo[0] && cv_skybox.value); // True if there's a skybox object and skyboxes are on
-
-	FRGBAFloat ClearColor;
-
-	ClearColor.red = 0.0f;
-	ClearColor.green = 0.0f;
-	ClearColor.blue = 0.0f;
-	ClearColor.alpha = 1.0f;
-
-	if (cv_glshaders.value)
-		HWD.pfnSetShaderInfo(HWD_SHADERINFO_LEVELTIME, (INT32)leveltime); // The water surface shader needs the leveltime.
-
-	if (viewnumber == 0) // Only do it if it's the first screen being rendered
-		HWD.pfnClearBuffer(true, false, &ClearColor); // Clear the Color Buffer, stops HOMs. Also seems to fix the skybox issue on Intel GPUs.
-
-	PS_START_TIMING(ps_hw_skyboxtime);
-	if (skybox && drawsky) // If there's a skybox and we should be drawing the sky, draw the skybox
-		HWR_RenderSkyboxView(viewnumber, player); // This is drawn before everything else so it is placed behind
-	PS_STOP_TIMING(ps_hw_skyboxtime);
-
 	HWR_SetupView(player, viewnumber, fpov, false);
-
-	framecount++; // timedemo
-
 	// check for new console commands.
 	NetUpdate();
-
-	//------------------------------------------------------------------------
-	HWR_ClearView(); // Clears the depth buffer and resets the view I believe
-
-	if (!skybox && drawsky) // Don't draw the regular sky if there's a skybox
-		HWR_DrawSkyBackground(player);
 
 	//Hurdler: it doesn't work in splitscreen mode
 	drawsky = splitscreen;
@@ -5527,6 +5726,10 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 		gld_FrustrumSetup();
 #endif
 	}
+#if 0
+	if (rootportal)
+		gld_clipper_SafeAddClipRange(rootportal->angle1, rootportal->angle2);
+#endif
 
 	//04/01/2000: Hurdler: added for T&L
 	//                     Actually it only works on Walls and Planes
@@ -5537,7 +5740,8 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 
 	if (HWR_IsWireframeMode())
 		HWD.pfnSetSpecialState(HWD_SET_WIREFRAME, 1);
-
+	if (cv_gldebugportal.value && cv_debug)
+		gl_debugportal = cv_gldebugportal.value;
 	ps_numbspcalls.value.i = 0;
 	ps_numpolyobjects.value.i = 0;
 	PS_START_TIMING(ps_bsptime);
@@ -5548,11 +5752,38 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 		HWR_StartBatching();
 
 	HWR_RenderBSPNode((INT32)numnodes-1);
+		// restore portal clipping variables
+	gl_portalcullsector = NULL;
+	gl_portalclipline = NULL;
 
 	PS_STOP_TIMING(ps_bsptime);
 
 	if (cv_glbatching.value)
 		HWR_RenderBatches();
+		// this is a hacky way to get rid of the main viewpoint for the debugportal
+	// command but maybe simpler than other options
+	if (gl_debugportal && !gl_portal_level)
+		HWD.pfnClearBuffer(true, true, true, 0);
+
+	portal_array = HWR_GetPortalArray();
+	unsigned int i;
+	for (i = 0; i < portal_array->size; i++)
+		HWR_RenderPortal(&portal_array->portals[i], rootportal, player, false,viewnumber);
+	HWR_ClearPortals();
+	// if there was portals, restore stencil state since HWR_RenderPortal
+	// has altered it
+	if (i)
+	{
+		HWR_SetStencilState(gl_portal_level ?
+				HWD_STENCIL_PORTAL_INSIDE : HWD_STENCIL_INACTIVE);
+		if (gl_printportals && !gl_rendering_skybox)
+		{
+			CONS_Printf("%*c%d: %u portals rendered\n", gl_portal_level+1, 'L',
+					gl_portal_level, i);
+		}
+	}
+
+
 
 	// Check for new console commands.
 	NetUpdate();
@@ -5563,6 +5794,8 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	HWR_ResetLights();
 #endif
 
+	if (!rootportal)
+	{
 	// Draw MD2 and sprites
 	ps_numsprites.value.i = gl_visspritecount;
 	PS_START_TIMING(ps_hw_spritesorttime);
@@ -5571,6 +5804,7 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	PS_START_TIMING(ps_hw_spritedrawtime);
 	HWR_DrawSprites();
 	PS_STOP_TIMING(ps_hw_spritedrawtime);
+	}
 
 #ifdef NEWCORONAS
 	//Hurdler: they must be drawn before translucent planes, what about gl fog?
@@ -5584,6 +5818,44 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	{
 		HWR_CreateDrawNodes();
 	}
+}
+// ==========================================================================
+//
+// ==========================================================================
+void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
+{
+	const boolean skybox = (skyboxmo[0] && cv_skybox.value); // True if there's a skybox object and skyboxes are on
+
+
+
+	FRGBAFloat ClearColor;
+
+	ClearColor.red = 0.0f;
+	ClearColor.green = 0.0f;
+	ClearColor.blue = 0.0f;
+	ClearColor.alpha = 1.0f;
+
+	if (cv_glshaders.value)
+		HWD.pfnSetShaderInfo(HWD_SHADERINFO_LEVELTIME, (INT32)leveltime); // The water surface shader needs the leveltime.
+
+	if (viewnumber == 0) // Only do it if it's the first screen being rendered
+		HWD.pfnClearBuffer(true, true, true, &ClearColor); // Clear the Color Buffer, stops HOMs. Also seems to fix the skybox issue on Intel GPUs.
+
+	PS_START_TIMING(ps_hw_skyboxtime);
+	if (skybox && drawsky) // If there's a skybox and we should be drawing the sky, draw the skybox
+		HWR_RenderSkyboxView(viewnumber, player); // This is drawn before everything else so it is placed behind
+	PS_STOP_TIMING(ps_hw_skyboxtime);
+
+
+	framecount++; // timedemo
+	//------------------------------------------------------------------------
+	HWR_ClearView(); // Clears the depth buffer and resets the view I believe
+
+	if (!skybox && drawsky) // Don't draw the regular sky if there's a skybox
+		HWR_DrawSkyBackground(player);
+
+
+	HWR_RenderViewpoint(player, viewnumber, NULL, skybox);
 
 	if (HWR_IsWireframeMode())
 		HWD.pfnSetSpecialState(HWD_SET_WIREFRAME, 0);
@@ -5599,6 +5871,7 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	// added by Hurdler for correct splitscreen
 	// moved here by hurdler so it works with the new near clipping plane
 	HWD.pfnGClipRect(0, 0, vid.width, vid.height, NZCLIP_PLANE);
+	gl_printportals = false;
 }
 
 // Returns whether palette rendering is "actually enabled."
@@ -5724,7 +5997,10 @@ static CV_PossibleValue_t glpalettedepth_cons_t[] = {{16, "16 bits"}, {24, "24 b
 
 consvar_t cv_glpaletterendering = CVAR_INIT ("gr_paletterendering", "On", CV_SAVE|CV_CALL, CV_OnOff, CV_glpaletterendering_OnChange);
 consvar_t cv_glpalettedepth = CVAR_INIT ("gr_palettedepth", "16 bits", CV_SAVE|CV_CALL, glpalettedepth_cons_t, CV_glpalettedepth_OnChange);
-
+// Isolates rendering to one of the top level portals.
+// (Stencil cutting of the portal is also disabled)
+// Use gr_printportals to find the number to use.
+consvar_t cv_gldebugportal = CVAR_INIT ("gr_debugportal", "0", 0, CV_Unsigned, NULL);
 #define ONLY_IF_GL_LOADED if (vid.glstate != VID_GL_LIBRARY_LOADED) return;
 consvar_t cv_glwireframe = CVAR_INIT ("gr_wireframe", "Off", 0, CV_OnOff, NULL);
 
@@ -5807,6 +6083,7 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_glpaletterendering);
 	CV_RegisterVar(&cv_glpalettedepth);
 	CV_RegisterVar(&cv_glwireframe);
+	CV_RegisterVar(&cv_gldebugportal);
 }
 
 // --------------------------------------------------------------------------
@@ -5894,19 +6171,17 @@ void transform(float *cx, float *cy, float *cz)
 
 void HWR_AddTransparentWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, INT32 texnum, FBITFIELD blend, boolean fogwall, INT32 lightlevel, extracolormap_t *wallcolormap)
 {
-	static size_t allocedwalls = 0;
-
 	if (!r_renderwalls)
 		return;
 
 	// Force realloc if buffer has been freed
 	if (!wallinfo)
-		allocedwalls = 0;
+		cst->allocedwalls = 0;
 
-	if (allocedwalls < numwalls + 1)
+	if (cst->allocedwalls < numwalls + 1)
 	{
-		allocedwalls += MAX_TRANSPARENTWALL;
-		Z_Realloc(wallinfo, allocedwalls * sizeof (*wallinfo), PU_LEVEL, &wallinfo);
+		cst->allocedwalls += MAX_TRANSPARENTWALL;
+		Z_Realloc(wallinfo, cst->allocedwalls * sizeof (*wallinfo), PU_LEVEL, &wallinfo);
 	}
 
 	M_Memcpy(wallinfo[numwalls].wallVerts, wallVerts, sizeof (wallinfo[numwalls].wallVerts));

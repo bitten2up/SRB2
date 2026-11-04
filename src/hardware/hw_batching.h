@@ -28,10 +28,14 @@ typedef struct
 	boolean horizonSpecial;
 	INT32 hash;
 } PolygonArrayEntry;
+#define DrawCallInfo PolygonArrayEntry
 
 void HWR_StartBatching(void);
+void HWR_PauseBatching(void);
 void HWR_SetCurrentTexture(GLMipmap_t *texture);
 void HWR_ProcessPolygon(FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUINT iNumPts, FBITFIELD PolyFlags, int shader, boolean horizonSpecial);
+void HWR_PushBatchingState(void);
+void HWR_PopBatchingState(void);
 void HWR_RenderBatches(void);
 
 #endif
