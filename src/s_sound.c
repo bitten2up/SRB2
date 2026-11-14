@@ -496,11 +496,6 @@ void S_StartSoundAtVolume(void *origin_p, sfxenum_t sfx_id, INT32 volume, soundo
 	if (S_SoundDisabled() || !sound_started)
 		return;
 
-	// Don't want a sound? Okay then...
-	if (sfx_id == sfx_None)
-		return;
-
-
 	if (mariomode) // Sounds change in Mario mode!
 	{
 		switch (sfx_id)
@@ -564,6 +559,10 @@ void S_StartSoundAtVolume(void *origin_p, sfxenum_t sfx_id, INT32 volume, soundo
 
 	const sfxenum_t actual_id = sfx_id =
 		LUA_HookSoundPlay(sfx_id, origin, soundorigin);
+
+	// Don't want a sound? Okay then...
+	if (sfx_id == sfx_None)
+		return;
 
 	if (players[displayplayer].awayviewtics)
 		listenmobj = players[displayplayer].awayviewmobj;
@@ -1104,7 +1103,7 @@ fixed_t S_CalculateSoundDistance(fixed_t sx1, fixed_t sy1, fixed_t sz1, fixed_t 
 	if (approx_dist >= FRACUNIT/2)
 		approx_dist = FRACUNIT/2-1;
 
-	approx_dist <<= FRACBITS;
+	approx_dist = FixedDiv(approx_dist<<FRACBITS, mapobjectscale); // TODO: 2.3: Use mobj->scale instead?
 
 	return approx_dist;
 }

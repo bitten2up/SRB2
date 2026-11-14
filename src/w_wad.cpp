@@ -1400,6 +1400,9 @@ UINT16 W_CheckNumForFolderEndPK3(const char *name, UINT16 wad, UINT16 startlump)
 	INT32 i;
 	lumpinfo_t *lump_p = wadfiles[wad]->lumpinfo + startlump;
 	size_t name_length = strlen(name);
+	
+	if (name[name_length - 1] != '/')
+		I_Error("W_CheckNumForFolderEndPK3: folder name \"%s\" should end with a slash\n", name);
 
 	void *val = M_AATreeGet(wadfiles[wad]->endfolders, Z_StrDup(name), W_CheckFolderKeys, W_DeallocFolderKey);
 	if (val != NULL)
@@ -1427,7 +1430,7 @@ char *W_GetLumpFolderPathPK3(UINT16 wad, UINT16 lump)
 	const char *fullname = wadfiles[wad]->lumpinfo[lump].fullname;
 
 	const char *slash = strrchr(fullname, '/');
-	INT32 pathlen = slash ? slash - fullname : 0;
+	INT32 pathlen = slash ? slash - fullname + 1 : 0;
 
 	char *path = static_cast<char*>(Z_Calloc(pathlen + 1, PU_STATIC, NULL));
 	strncpy(path, fullname, pathlen);

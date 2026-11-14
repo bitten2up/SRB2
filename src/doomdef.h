@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2024 by Sonic Team Junior.
+// Copyright (C) 1999-2026 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -471,7 +471,12 @@ enum {
 
 // Name of local directory for config files and savegames
 #if (defined (__unix__) || defined (UNIXCOMMON)) && !defined (__CYGWIN__) && !defined (__APPLE__)
+#ifdef DEVELOP
+// don't fuck up our srb2 home if we are working on development versions
+#define DEFAULTDIR ".srb2dev"
+#else
 #define DEFAULTDIR ".srb2"
+#endif
 #else
 #define DEFAULTDIR "srb2"
 #endif

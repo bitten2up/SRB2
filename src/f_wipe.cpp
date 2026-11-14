@@ -14,6 +14,7 @@
 
 #include "f_finale.h"
 #include "i_video.h"
+#include "r_main.h"
 #include "v_video.h"
 
 #include "r_state.h" // fadecolormap
@@ -594,6 +595,7 @@ static void refresh_wipe_screen_texture(rhi::Rhi& rhi, rhi::Handle<rhi::Graphics
   */
 void F_WipeStartScreen(void)
 {
+	renderisnewtic = true; // hack to allow the HUD hooks to run for 1 tic before the wipe starts with interp active
 #ifndef NOWIPE
 #ifdef HWRENDER
 	if(rendermode != render_soft)

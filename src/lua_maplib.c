@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 2012-2016 by John "JTE" Muniz.
-// Copyright (C) 2012-2024 by Sonic Team Junior.
+// Copyright (C) 2012-2026 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -2616,7 +2616,7 @@ static int slope_set(lua_State *L)
 		if (zangle == ANGLE_90 || zangle == ANGLE_270)
 			return luaL_error(L, "invalid zangle for slope!");
 		slope->zangle = zangle;
-		slope->zdelta = -FINETANGENT(((slope->zangle+ANGLE_90)>>ANGLETOFINESHIFT) & 4095);
+		slope->zdelta = -FINETANGENT(((slope->zangle+ANGLE_90)>>ANGLETOFINESHIFT) & TANMASK);
 		slope->dzdelta = FixedToDouble(slope->zdelta);
 		P_CalculateSlopeNormal(slope);
 		break;
@@ -2710,6 +2710,7 @@ enum mapheaderinfo_e
 	mapheaderinfo_sstimer,
 	mapheaderinfo_ssspheres,
 	mapheaderinfo_gravity,
+	mapheaderinfo_mobj_scale,
 };
 
 static const char *const mapheaderinfo_opt[] = {
@@ -2758,6 +2759,7 @@ static const char *const mapheaderinfo_opt[] = {
 	"sstimer",
 	"ssspheres",
 	"gravity",
+	"mobj_scale",
 	NULL,
 };
 
@@ -2908,6 +2910,9 @@ static int mapheaderinfo_get(lua_State *L)
 		break;
 	case mapheaderinfo_gravity:
 		lua_pushfixed(L, header->gravity);
+		break;
+	case mapheaderinfo_mobj_scale:
+		lua_pushfixed(L, header->mobj_scale);
 		break;
 	// TODO add support for reading numGradedMares and grades
 	default:

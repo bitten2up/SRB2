@@ -1445,7 +1445,7 @@ void ST_drawTitleCard(void)
 	lt_lasttic = lt_ticker;
 
 luahook:
-	//if (renderisnewtic)
+	if (renderisnewtic)
 	{
 		LUA_HUD_ClearDrawList(luahuddrawlist_titlecard);
 		LUA_HUDHOOK(titlecard, luahuddrawlist_titlecard);
@@ -2898,12 +2898,12 @@ void ST_Drawer(void)
 		if (players[displayplayer].pflags & PF_TAGIT)
 		{
 			stplyr = &players[displayplayer];
-			V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, 31|V_PERPLAYER);
+			V_DrawFill(0, 0, vid.width, vid.height, 31|V_NOSCALESTART|V_PERPLAYER);
 		}
 		else if (splitscreen && players[secondarydisplayplayer].pflags & PF_TAGIT)
 		{
 			stplyr = &players[secondarydisplayplayer];
-			V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, 31|V_PERPLAYER);
+			V_DrawFill(0, 0, vid.width, vid.height, 31|V_NOSCALESTART|V_PERPLAYER);
 		}
 	}
 

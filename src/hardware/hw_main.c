@@ -473,8 +473,8 @@ static void HWR_RenderPlane(subsector_t *subsector, extrasubsector_t *xsub, bool
 
 #define SETUP3DVERT(vert, vx, vy) {\
 		/* Hurdler: add scrolling texture on floor/ceiling */\
-		vert->s = ((vx) / fflatwidth) + (scrollx / xscale);\
-		vert->t = -((vy) / fflatheight) + (scrolly / yscale);\
+		vert->s = (vx) + ((scrollx * fflatwidth) / xscale);\
+		vert->t = -(vy) + ((scrolly * fflatheight) / yscale);\
 \
 		/* Need to rotate before translate */\
 		if (angle) /* Only needs to be done if there's an altered angle */\
@@ -485,8 +485,8 @@ static void HWR_RenderPlane(subsector_t *subsector, extrasubsector_t *xsub, bool
 			vert->t = (tempxsow * sin(anglef)) + (tempytow * cos(anglef));\
 		}\
 \
-		vert->s *= xscale;\
-		vert->t *= yscale;\
+		vert->s = (vert->s / fflatwidth) * xscale;\
+		vert->t = (vert->t / fflatheight) * yscale;\
 \
 		if (slope)\
 		{\
@@ -2234,7 +2234,7 @@ static void HWR_ProcessSeg(void)
 			texturevpeg += gl_sidedef->rowoffset + gl_sidedef->offsety_mid;
 
 			wallVerts[3].t = wallVerts[2].t = texturevpeg * grTex->scaleY;
-			wallVerts[0].t = wallVerts[1].t = (texturevpeg + gl_frontsector->ceilingheight - gl_frontsector->floorheight) * grTex->scaleY;
+			wallVerts[0].t = wallVerts[1].t = (texturevpeg + (gl_frontsector->ceilingheight - gl_frontsector->floorheight) * yscale) * grTex->scaleY;
 			wallVerts[0].s = wallVerts[3].s = ((cliplow * xscale) + gl_sidedef->textureoffset + gl_sidedef->offsetx_mid) * grTex->scaleX;
 			wallVerts[2].s = wallVerts[1].s = ((cliphigh * xscale) + gl_sidedef->textureoffset + gl_sidedef->offsetx_mid) * grTex->scaleX;
 
@@ -3006,8 +3006,8 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 	{
 		// Go from the polysector's original vertex locations
 		// Means the flat is offset based on the original vertex locations
-		v3d->s = (FixedToFloat(polysector->origVerts[i].x) / fflatwidth) + (scrollx / xscale);
-		v3d->t = -(FixedToFloat(polysector->origVerts[i].y) / fflatheight) + (scrolly / yscale);
+		v3d->s = FixedToFloat(polysector->origVerts[i].x) + ((scrollx * fflatwidth) / xscale);
+		v3d->t = -FixedToFloat(polysector->origVerts[i].y) + ((scrolly * fflatheight) / yscale);
 
 		// Need to rotate before translate
 		if (angle) // Only needs to be done if there's an altered angle
@@ -3021,8 +3021,8 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 			v3d->t = (tempxsow * sin(anglef)) + (tempytow * cos(anglef));
 		}
 
-		v3d->s *= xscale;
-		v3d->t *= yscale;
+		v3d->s = (v3d->s / fflatwidth) * xscale;
+		v3d->t = (v3d->t / fflatheight) * yscale;
 
 		v3d->x = FIXED_TO_FLOAT(polysector->vertices[i]->x);
 		v3d->y = height;
@@ -5080,6 +5080,7 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	float x1, x2;
 	float rightsin, rightcos;
 	float this_scale, this_xscale, this_yscale;
+	fixed_t highresscale;
 	float spritexscale, spriteyscale;
 	float shadowheight = 1.0f, shadowscale = 1.0f;
 	float gz, gzt;
@@ -5267,7 +5268,15 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	}
 
 	if (thing->skin && ((skin_t *)thing->skin)->flags & SF_HIRES)
-		this_scale *= FIXED_TO_FLOAT(((skin_t *)thing->skin)->highresscale);
+	{
+		float hi_res = ((skin_t *)thing->skin)->highresscale;
+		this_scale *= FIXED_TO_FLOAT(hi_res);
+		highresscale = hi_res;
+	}
+	else
+	{
+		highresscale = FRACUNIT;
+	}
 
 	spr_width = spritecachedinfo[lumpoff].width;
 	spr_height = spritecachedinfo[lumpoff].height;
@@ -5316,8 +5325,8 @@ static void HWR_ProjectSprite(mobj_t *thing)
 		if ((thing->renderflags & RF_FLIPOFFSETS) && flip)
 			flipoffset = -1;
 
-		spr_offset += interp.spritexoffset * flipoffset;
-		spr_topoffset += interp.spriteyoffset * flipoffset;
+		spr_offset += FixedDiv(interp.spritexoffset,highresscale) * flipoffset;
+		spr_topoffset += FixedDiv(interp.spriteyoffset,highresscale) * flipoffset;
 	}
 
 	if (papersprite)
@@ -5560,6 +5569,7 @@ static void HWR_ProjectPrecipitationSprite(precipmobj_t *thing)
 	float x1, x2;
 	float z1, z2;
 	float rightsin, rightcos;
+	float this_scale;
 	spritedef_t *sprdef;
 	spriteframe_t *sprframe;
 	size_t lumpoff;
@@ -5579,6 +5589,10 @@ static void HWR_ProjectPrecipitationSprite(precipmobj_t *thing)
 	// uncapped/interpolation
 	interpmobjstate_t interp = {0};
 
+	// Do this here so the precip sprite doesn't jitter at the beginning of a gametic
+	if (!paused && thing->lastupdatetime < gametic)
+		R_ResetPrecipitationMobjInterpolationState(thing);
+
 	// do interpolation
 	if (R_UsingFrameInterpolation() && !paused)
 	{
@@ -5588,6 +5602,8 @@ static void HWR_ProjectPrecipitationSprite(precipmobj_t *thing)
 	{
 		R_InterpolatePrecipMobjState(thing, FRACUNIT, &interp);
 	}
+
+	this_scale = FIXED_TO_FLOAT(interp.scale);
 
 	// transform the origin point
 	tr_x = FIXED_TO_FLOAT(interp.x) - gl_viewx;
@@ -5632,13 +5648,13 @@ static void HWR_ProjectPrecipitationSprite(precipmobj_t *thing)
 	rightcos = FIXED_TO_FLOAT(FINECOSINE((viewangle + ANGLE_90)>>ANGLETOFINESHIFT));
 	if (flip)
 	{
-		x1 = FIXED_TO_FLOAT(spritecachedinfo[lumpoff].width - spritecachedinfo[lumpoff].offset);
-		x2 = FIXED_TO_FLOAT(spritecachedinfo[lumpoff].offset);
+		x1 = (FIXED_TO_FLOAT(spritecachedinfo[lumpoff].width - spritecachedinfo[lumpoff].offset) * this_scale);
+		x2 = (FIXED_TO_FLOAT(spritecachedinfo[lumpoff].offset) * this_scale);
 	}
 	else
 	{
-		x1 = FIXED_TO_FLOAT(spritecachedinfo[lumpoff].offset);
-		x2 = FIXED_TO_FLOAT(spritecachedinfo[lumpoff].width - spritecachedinfo[lumpoff].offset);
+		x1 = (FIXED_TO_FLOAT(spritecachedinfo[lumpoff].offset) * this_scale);
+		x2 = (FIXED_TO_FLOAT(spritecachedinfo[lumpoff].width - spritecachedinfo[lumpoff].offset) * this_scale);
 	}
 
 	z1 = tr_y + x1 * rightsin;
@@ -5658,25 +5674,27 @@ static void HWR_ProjectPrecipitationSprite(precipmobj_t *thing)
 	vis->dispoffset = 0; // Monster Iestyn: 23/11/15: HARDWARE SUPPORT AT LAST
 	vis->gpatch = (patch_t *)W_CachePatchNum(sprframe->lumppat[rot], PU_SPRITE);
 	vis->flip = flip;
+	vis->scale = this_scale;
 	vis->mobj = (mobj_t *)thing;
 
 	vis->colormap = NULL;
 
 	// set top/bottom coords
-	vis->gzt = FIXED_TO_FLOAT(interp.z + spritecachedinfo[lumpoff].topoffset);
-	vis->gz = vis->gzt - FIXED_TO_FLOAT(spritecachedinfo[lumpoff].height);
+	vis->gzt = FIXED_TO_FLOAT(interp.z) + (FIXED_TO_FLOAT(spritecachedinfo[lumpoff].topoffset) * this_scale);
+	vis->gz = vis->gzt - (FIXED_TO_FLOAT(spritecachedinfo[lumpoff].height) * this_scale);
 
 	vis->precip = true;
 	vis->bbox = false;
 
 	// okay... this is a hack, but weather isn't networked, so it should be ok
-	if (!(thing->precipflags & PCF_THUNK))
+	if (!(paused || P_AutoPause() || objectplacing) && thing->lastupdatetime < gametic)
 	{
 		if (thing->precipflags & PCF_RAIN)
 			P_RainThinker(thing);
 		else
 			P_SnowThinker(thing);
-		thing->precipflags |= PCF_THUNK;
+
+		thing->lastupdatetime = gametic;
 	}
 }
 
@@ -6243,7 +6261,10 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	ClearColor.alpha = 1.0f;
 
 	if (cv_glshaders.value)
+	{
 		HWD.pfnSetShaderInfo(HWD_SHADERINFO_LEVELTIME, (INT32)leveltime); // The water surface shader needs the leveltime.
+		HWD.pfnSetShaderInfo(HWD_SHADERINFO_MAPOBJECTSCALE, (INT32)mapobjectscale); // The lighting calculations need the mapobjectscale.
+	}
 
 	if (viewnumber == 0) // Only do it if it's the first screen being rendered
 		HWD.pfnClearBuffer(true, false, &ClearColor); // Clear the Color Buffer, stops HOMs. Also seems to fix the skybox issue on Intel GPUs.
@@ -6746,6 +6767,8 @@ void HWR_DoPostProcessor(player_t *player)
 			Surf.PolyColor.s.red = Surf.PolyColor.s.green = Surf.PolyColor.s.blue = 0xff;
 
 		Surf.PolyColor.s.alpha = 0xc0; // match software mode
+
+		V_CubeApply(&Surf.PolyColor.s.red, &Surf.PolyColor.s.green, &Surf.PolyColor.s.blue);
 
 		HWD.pfnDrawPolygon(&Surf, v, 4, PF_Modulated|PF_Additive|PF_NoTexture|PF_NoDepthTest);
 	}

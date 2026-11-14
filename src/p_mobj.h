@@ -123,6 +123,7 @@ typedef enum
 	//  or changing it actively.
 	MF_NOGRAVITY        = 1<<9,
 	// This object is an ambient sound.
+	// TODO: 2.3: Remove this flag and just check for MT_AMBIENT instead
 	MF_AMBIENT          = 1<<10,
 	// Slide this object when it hits a wall.
 	MF_SLIDEME          = 1<<11,
@@ -163,7 +164,11 @@ typedef enum
 	MF_GRENADEBOUNCE    = 1<<28,
 	// Run the action thinker on spawn.
 	MF_RUNSPAWNFUNC     = 1<<29,
-	// free: 1<<30 and 1<<31
+	// Apply slope physics to mobj if on slope
+	MF_APPLYSLOPE       = 1<<30,
+	// Prevent mobj from stepping up or down stairs
+	MF_NOSTEPMOVE       = 1<<31
+	// free: none
 } mobjflag_t;
 
 typedef enum
@@ -273,8 +278,6 @@ typedef enum {
 	PCF_MOVINGFOF = 8,
 	// Is rain.
 	PCF_RAIN = 16,
-	// Ran the thinker this tic.
-	PCF_THUNK = 32,
 } precipflag_t;
 
 // [RH] Like msecnode_t, but for the blockmap
@@ -305,6 +308,7 @@ typedef struct animator_s
 } animator_t;
 
 // Map Object definition.
+typedef struct skin_s skin_t;
 typedef struct mobj_s
 {
 	// List: thinker links.
@@ -364,7 +368,7 @@ typedef struct mobj_s
 	UINT32 flags2; // MF2_ flags
 	UINT16 eflags; // extra flags
 
-	void *skin; // overrides 'sprite' when non-NULL (for player bodies to 'remember' the skin)
+	skin_t *skin; // overrides 'sprite' when non-NULL (for player bodies to 'remember' the skin)
 
 	// Player and mobj sprites in multiplayer modes are modified
 	//  using an internal color lookup table for re-indexing.
@@ -411,6 +415,7 @@ typedef struct mobj_s
 
 	fixed_t friction;
 	fixed_t movefactor;
+	fixed_t gravity;
 
 	INT32 fuse; // Does something in P_MobjThinker on reaching 0.
 	fixed_t watertop; // top of the water FOF the mobj is in
@@ -507,6 +512,8 @@ typedef struct precipmobj_s
 	INT32 tics; // state tic counter
 	state_t *state;
 	INT32 flags; // flags from mobjinfo tables
+
+	tic_t lastupdatetime;
 } precipmobj_t;
 
 typedef struct actioncache_s
@@ -541,7 +548,7 @@ void P_SetBonusTime(mobj_t *mobj);
 void P_SpawnItemPattern(mapthing_t *mthing, boolean bonustime);
 void P_SpawnHoopOfSomething(fixed_t x, fixed_t y, fixed_t z, fixed_t radius, INT32 number, mobjtype_t type, angle_t rotangle);
 void P_SpawnPrecipitation(void);
-void P_SpawnParaloop(fixed_t x, fixed_t y, fixed_t z, fixed_t radius, INT32 number, mobjtype_t type, statenum_t nstate, angle_t rotangle, boolean spawncenter);
+void P_SpawnParaloop(fixed_t x, fixed_t y, fixed_t z, fixed_t radius, INT32 number, mobjtype_t type, statenum_t nstate, angle_t rotangle, boolean spawncenter, fixed_t scale);
 void *P_CreateFloorSpriteSlope(mobj_t *mobj);
 void P_RemoveFloorSpriteSlope(mobj_t *mobj);
 boolean P_BossTargetPlayer(mobj_t *actor, boolean closest);

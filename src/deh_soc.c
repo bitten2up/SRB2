@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2025 by Sonic Team Junior.
+// Copyright (C) 1999-2026 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -1829,6 +1829,8 @@ void readlevelheader(MYFILE *f, INT32 num)
 				header->sstimer = i;
 			else if (fastcmp(word, "SPECIALSTAGESPHERES"))
 				header->ssspheres = i;
+			else if (fastcmp(word, "MOBJSCALE"))
+				mapheaderinfo[num-1]->mobj_scale = get_number(word2);
 			else if (fastcmp(word, "GRAVITY"))
 				header->gravity = FLOAT_TO_FIXED(atof(word2));
 			else
@@ -3192,6 +3194,8 @@ void readunlockable(MYFILE *f, INT32 num)
 					unlockables[num].nocecho = (UINT8)(i || word2[0] == 'T' || word2[0] == 'Y');
 				else if (fastcmp(word, "NOCHECKLIST"))
 					unlockables[num].nochecklist = (UINT8)(i || word2[0] == 'T' || word2[0] == 'Y');
+				else if (fastcmp(word, "HIDDEN"))
+					unlockables[num].hidden = (UINT8)(i || word2[0] == 'T' || word2[0] == 'Y');
 				else if (fastcmp(word, "TYPE"))
 				{
 					if (fastcmp(word2, "NONE"))

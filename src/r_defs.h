@@ -608,6 +608,7 @@ typedef struct line_s
 	fixed_t dx, dy; // Precalculated v2 - v1 for side checking.
 	angle_t angle; // Precalculated angle between dx and dy
 
+	// Animation related.
 	UINT32 flags;
 	INT16 special;
 	taglist_t tags;

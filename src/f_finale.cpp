@@ -4024,6 +4024,9 @@ void F_StartCustomCutscene(INT32 cutscenenum, boolean precutscene, boolean reset
 	paused = false;
 	CON_ToggleOff();
 
+	// In case menus are still up?!!
+	M_ClearMenus(true);
+
 	F_NewCutscene(cutscenes[cutscenenum]->scene[0].text);
 
 	cutsceneover = false;

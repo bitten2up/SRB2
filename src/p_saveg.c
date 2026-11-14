@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2024 by Sonic Team Junior.
+// Copyright (C) 1999-2026 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -2191,8 +2191,9 @@ typedef enum
 	MD2_DONTDRAWFORVIEWMOBJ = 1<<25,
 	MD2_TRANSLATION         = 1<<26,
 	MD2_ALPHA               = 1<<27,
-	MD2_SKINSPRITESET       = 1<<28,
-	MD2_ANIMATION           = 1<<29
+	MD2_GRAVITY             = 1<<28,
+	MD2_SKINSPRITESET       = 1<<29,
+	MD2_ANIMATION           = 1<<30
 } mobj_diff2_t;
 
 typedef enum
@@ -2433,6 +2434,8 @@ static void SaveMobjThinker(save_t *save_p, const thinker_t *th, const UINT8 typ
 		diff2 |= MD2_DISPOFFSET;
 	if (mobj->alpha != FRACUNIT)
 		diff2 |= MD2_ALPHA;
+	if (mobj->gravity != FRACUNIT)
+		diff2 |= MD2_GRAVITY;
 
 	if (diff2 != 0)
 		diff |= MD_MORE;
@@ -2615,6 +2618,8 @@ static void SaveMobjThinker(save_t *save_p, const thinker_t *th, const UINT8 typ
 		P_WriteUINT16(save_p, mobj->translation);
 	if (diff2 & MD2_ALPHA)
 		P_WriteFixed(save_p, mobj->alpha);
+	if (diff2 & MD2_GRAVITY)
+		P_WriteFixed(save_p, mobj->gravity);
 	if (diff2 & MD2_SKINSPRITESET)
 		P_WriteUINT8(save_p, mobj->skinspriteset);
 	if (diff2 & MD2_ANIMATION)
@@ -2629,6 +2634,10 @@ static void SaveMobjThinker(save_t *save_p, const thinker_t *th, const UINT8 typ
 	}
 
 	P_WriteUINT32(save_p, mobj->mobjnum);
+
+	P_WriteUINT8(save_p, mobj == hunt1);
+	P_WriteUINT8(save_p, mobj == hunt2);
+	P_WriteUINT8(save_p, mobj == hunt3);
 }
 
 static void SaveNoEnemiesThinker(save_t *save_p, const thinker_t *th, const UINT8 type)
@@ -3684,6 +3693,10 @@ static thinker_t* LoadMobjThinker(save_t *save_p, actionf_p1 thinker)
 		mobj->alpha = P_ReadFixed(save_p);
 	else
 		mobj->alpha = FRACUNIT;
+	if (diff2 & MD2_GRAVITY)
+		mobj->gravity = P_ReadFixed(save_p);
+	else
+		mobj->gravity = FRACUNIT;
 	if (diff2 & MD2_SKINSPRITESET)
 		mobj->skinspriteset = P_ReadUINT8(save_p);
 	if (diff2 & MD2_ANIMATION)
@@ -3699,10 +3712,10 @@ static thinker_t* LoadMobjThinker(save_t *save_p, actionf_p1 thinker)
 	}
 
 	if (diff & MD_REDFLAG)
-	{
-		redflag = mobj;
-		rflagpoint = mobj->spawnpoint;
-	}
+{
+	redflag = mobj;
+	rflagpoint = mobj->spawnpoint;
+}
 	if (diff & MD_BLUEFLAG)
 	{
 		blueflag = mobj;
@@ -3737,6 +3750,13 @@ static thinker_t* LoadMobjThinker(save_t *save_p, actionf_p1 thinker)
 	mobj->info = (mobjinfo_t *)next; // temporarily, set when leave this function
 
 	R_AddMobjInterpolator(mobj);
+
+	if (P_ReadUINT8(save_p))
+		hunt1 = mobj;
+	if (P_ReadUINT8(save_p))
+		hunt2 = mobj;
+	if (P_ReadUINT8(save_p))
+		hunt3 = mobj;
 
 	return &mobj->thinker;
 }
@@ -5040,6 +5060,7 @@ static void P_NetArchiveMisc(save_t *save_p, boolean resending)
 	P_WriteUINT32(save_p, countdown2);
 
 	P_WriteFixed(save_p, gravity);
+	P_WriteFixed(save_p, mapobjectscale);
 
 	P_WriteUINT32(save_p, countdowntimer);
 	P_WriteUINT8(save_p, countdowntimeup);
@@ -5146,6 +5167,7 @@ FUNCINLINE static ATTRINLINE boolean P_NetUnArchiveMisc(save_t *save_p, boolean 
 	countdown2 = P_ReadUINT32(save_p);
 
 	gravity = P_ReadFixed(save_p);
+	mapobjectscale = P_ReadFixed(save_p);
 
 	countdowntimer = (tic_t)P_ReadUINT32(save_p);
 	countdowntimeup = P_ReadUINT8(save_p);

@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2025 by Sonic Team Junior.
+// Copyright (C) 1999-2026 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -76,6 +76,8 @@ extern SINT8 startinglivesbalance[maxgameovers+1];
 #define PRECIP_BLANK 4
 #define PRECIP_STORM_NORAIN 5
 #define PRECIP_STORM_NOSTRIKES 6
+#define PRECIP_THUNDERSNOW 7
+#define PRECIP_THUNDERSNOW_NOSTRIKES 8
 
 // Set if homebrew PWAD stuff has been added.
 extern boolean modifiedgame;
@@ -369,6 +371,7 @@ typedef struct
 	INT32 sstimer;              ///< Timer for special stages.
 	UINT32 ssspheres;           ///< Sphere requirement in special stages.
 	fixed_t gravity;            ///< Map-wide gravity.
+	fixed_t mobj_scale;         ///< Defines the size all object calculations are relative to
 	UINT16 nightstimer[8];      ///< Per-mare time limits for NiGHTS stages.
 
 	// Title card.
@@ -596,6 +599,7 @@ extern UINT32 countdown;
 extern UINT32 countdown2;
 
 extern fixed_t gravity;
+extern fixed_t mapobjectscale;
 
 //for CTF balancing
 extern INT16 autobalance;

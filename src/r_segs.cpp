@@ -247,6 +247,7 @@ INT32 R_GetOverlayTextureRepeats(unsigned which, side_t *side, INT32 texnum, sec
 
 	if (repeats > 0 || (side->overlays[which].flags & SIDEOVERLAYFLAG_WRAP) == 0)
 		return std::max(repeats, 1);
+	boolean clipmidtex;
 
 	fixed_t high, low;
 	fixed_t texheight = FixedDiv(textureheight[texnum], abs(side->overlays[which].scaley));
@@ -663,6 +664,8 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 				// Skip this column
 				for (i = 0; i < dc_numlights; i++)
 				{
+					lighttable_t **xwalllights;
+
 					rlight = &dc_lightlist[i];
 					rlight->height += rlight->heightstep;
 				}
@@ -726,7 +729,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 					else
 						xwalllights = scalelight[rlight->lightnum];
 
-					pindex = FixedMul(FixedMul(spryscale, wall_scaley), LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
+					pindex = FixedMul(FixedMul(FixedMul(spryscale, wall_scaley), mapobjectscale), LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
 
 					if (pindex >= MAXLIGHTSCALE)
 						pindex = MAXLIGHTSCALE - 1;
@@ -771,7 +774,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 			}
 
 			// calculate lighting
-			pindex = FixedMul(FixedMul(spryscale, wall_scaley), LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
+			pindex = FixedMul(FixedMul(FixedMul(spryscale, wall_scaley), mapobjectscale), LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
 			if (pindex >= MAXLIGHTSCALE)
 				pindex = MAXLIGHTSCALE - 1;
 
@@ -1003,7 +1006,7 @@ static void R_RenderExtraTexture(unsigned which, INT32 x1, INT32 x2, INT32 repea
 			}
 
 			// calculate lighting
-			pindex = FixedMul(FixedMul(spryscale, wall_scaley), LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
+			pindex = FixedMul(FixedMul(FixedMul(spryscale, wall_scaley), mapobjectscale), LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
 
 			if (pindex >= MAXLIGHTSCALE)
 				pindex = MAXLIGHTSCALE - 1;
@@ -1013,11 +1016,7 @@ static void R_RenderExtraTexture(unsigned which, INT32 x1, INT32 x2, INT32 repea
 			if (frontsector->extra_colormap)
 				dc_colormap = frontsector->extra_colormap->colormap + (dc_colormap - colormaps);
 
-			sprtopscreen = centeryfrac - FixedMul(dc_texturemid, spryscale);
-			dc_iscale = FixedMul(ds->invscale[dc_x], wall_scaley);
-
 			// draw the texture
-			col = R_GetColumn(texnum, texturecol[dc_x] >> FRACBITS);
 			colfunc_2s(col, lengthcol);
 
 			spryscale += rw_scalestep;
@@ -1561,7 +1560,7 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 					else
 						xwalllights = scalelight[lightnum];
 
-					pindex = FixedMul(spryscale, LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
+					pindex = FixedMul(FixedMul(spryscale, mapobjectscale), LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
 
 					if (pindex >= MAXLIGHTSCALE)
 						pindex = MAXLIGHTSCALE-1;
@@ -1655,7 +1654,7 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 		}
 
 		// calculate lighting
-		pindex = FixedMul(spryscale, LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
+		pindex = FixedMul(FixedMul(spryscale, mapobjectscale), LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
 
 		if (pindex >= MAXLIGHTSCALE)
 			pindex = MAXLIGHTSCALE - 1;
@@ -1962,14 +1961,14 @@ static void R_RenderSegLoop (void)
 		//SoM: Calculate offsets for Thick fake floors.
 		// calculate texture offset
 		angle = (rw_centerangle + xtoviewangle[rw_x])>>ANGLETOFINESHIFT;
-		textureoffset = rw_offset - FixedMul(FINETANGENT(angle), rw_distance);
-		texturecolumn = FixedDiv(textureoffset, rw_invmidtexturescalex);
+		textureoffset = rw_offset - FixedMul(FINETANGENT(angle & TANMASK), rw_distance);
+		texturecolumn = FixedMul(textureoffset, rw_midtexturescalex);
 
 		// texturecolumn and lighting are independent of wall tiers
 		if (segtextured)
 		{
 			// calculate lighting
-			pindex = FixedMul(rw_scale, LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
+			pindex = FixedMul(FixedMul(rw_scale, mapobjectscale), LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
 
 			if (pindex >=  MAXLIGHTSCALE)
 				pindex = MAXLIGHTSCALE-1;
@@ -2003,7 +2002,7 @@ static void R_RenderSegLoop (void)
 				else
 					xwalllights = scalelight[lightnum];
 
-				pindex = FixedMul(rw_scale, LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
+				pindex = FixedMul(FixedMul(rw_scale, mapobjectscale), LIGHTRESOLUTIONFIX)>>LIGHTSCALESHIFT;
 
 				if (pindex >=  MAXLIGHTSCALE)
 					pindex = MAXLIGHTSCALE-1;
@@ -2063,7 +2062,7 @@ static void R_RenderSegLoop (void)
 				if (mid >= floorclip[rw_x])
 					mid = floorclip[rw_x]-1;
 
-				toptexturecolumn = FixedDiv(textureoffset, rw_invtoptexturescalex);
+				toptexturecolumn = FixedMul(textureoffset, rw_toptexturescalex);
 
 				if (mid >= yl) // back ceiling lower than front ceiling ?
 				{
@@ -2110,7 +2109,7 @@ static void R_RenderSegLoop (void)
 				if (mid <= ceilingclip[rw_x])
 					mid = ceilingclip[rw_x]+1;
 
-				bottomtexturecolumn = FixedDiv(textureoffset, rw_invbottomtexturescalex);
+				bottomtexturecolumn = FixedMul(textureoffset, rw_bottomtexturescalex);
 
 				if (mid <= yh) // back floor higher than front floor ?
 				{

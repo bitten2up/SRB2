@@ -1092,6 +1092,8 @@ void V_DrawFixedFill(fixed_t x, fixed_t y, fixed_t w, fixed_t h, INT32 c)
 	{
 		x >>= FRACBITS;
 		y >>= FRACBITS;
+		w >>= FRACBITS;
+		h >>= FRACBITS;
 	}
 	else
 	{
@@ -2546,7 +2548,7 @@ void InitColorLUT(colorlookup_t *lut, RGBA_t *palette, boolean makecolors)
 		lut->init = true;
 		memcpy(lut->palette, palette, palsize);
 
-		for (i = 0; i < 0xFFFF; i++)
+		for (i = 0; i < 0x10000; i++)
 			lut->table[i] = 0xFFFF;
 
 		if (makecolors)

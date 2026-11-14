@@ -1172,7 +1172,7 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 		}
 
 		fullname = wadfiles[wadnum]->lumpinfo[i].fullname;
-		name_p = fullname + strlen(folderpath) + 1; // Skip parent folder of S_SKIN lump
+		name_p = fullname + strlen(folderpath); // Skip parent folder of S_SKIN lump
 
 		// Get spriteset name
 		underscore = strchr(name_p, '/');
