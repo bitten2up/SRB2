@@ -8123,7 +8123,7 @@ static void M_HandleSoundTest(INT32 choice)
 // Entering secrets menu
 static void M_SecretsMenu(INT32 choice)
 {
-	INT32 i, j, ul;
+	INT32 i, j, ul, offy = 0;
 	UINT8 done[MAXUNLOCKABLES];
 	UINT16 curheight;
 
@@ -8136,6 +8136,7 @@ static void M_SecretsMenu(INT32 choice)
 
 	memset(skyRoomMenuTranslations, 0, sizeof(skyRoomMenuTranslations));
 	memset(done, 0, sizeof(done));
+
 
 	for (i = 1; i <= MAXUNLOCKABLES; ++i)
 	{
@@ -8161,7 +8162,8 @@ static void M_SecretsMenu(INT32 choice)
 
 		skyRoomMenuTranslations[i-1] = (UINT8)ul;
 		SR_MainMenu[i].text = unlockables[ul].name;
-		SR_MainMenu[i].alphaKey = (UINT16)unlockables[ul].height;
+		SR_MainMenu[i].alphaKey = (UINT16)unlockables[ul].height - (i == 1 ? offy:0);
+		offy += SR_MainMenu[i].alphaKey;
 
 		if (unlockables[ul].type == SECRET_HEADER)
 		{
