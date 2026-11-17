@@ -561,9 +561,15 @@ static menuitem_t MPauseMenu[] =
 	{IT_STRING | IT_CALL,    NULL, "Player 1 Setup",            M_SetupMultiPlayer,     8}, // splitscreen
 	{IT_STRING | IT_CALL,    NULL, "Player 2 Setup",            M_SetupMultiPlayer2,    8},
 
+#if 0
 	{IT_STRING | IT_CALL,    NULL, "Spectate",                  M_ConfirmSpectate,      8}, // alone (game entering method; replaceable by below)
 	{IT_STRING | IT_CALL,    NULL, "Enter Game",                M_ConfirmEnterGame,     8}, // game entering method; replaceable by above or below
 	{IT_STRING | IT_SUBMENU, NULL, "Switch Team...",            &MISC_ChangeTeamDef,    8}, // game entering method; replaceable by above
+#else
+	{IT_STRING | IT_CALL,    NULL, "Spectate",                  M_ConfirmSpectate,     12}, // alone
+	{IT_STRING | IT_CALL,    NULL, "Enter Game",                M_ConfirmEnterGame,    12},
+	{IT_STRING | IT_SUBMENU, NULL, "Switch Team...",            &MISC_ChangeTeamDef,   12},
+#endif
 	{IT_STRING | IT_CALL,    NULL, "Player Setup",              M_SetupMultiPlayer,     8},
 
 	{IT_STRING | IT_CALL,    NULL, "Options",                   M_Options,              8},
@@ -4500,15 +4506,18 @@ static void M_DrawGenericMenu(void)
 				if (currentMenu->menuitems[i].patch && currentMenu->menuitems[i].patch[0])
 					V_DrawMappedPatch(x, y, 0,
 						W_CachePatchName(currentMenu->menuitems[i].patch,PU_PATCH), graymap);
-				currentmenuitem_offy(y, (!currentMenu->menuitems[i].alphaKey ? LINEHEIGHT : currentMenu->menuitems[i].alphaKey))
+				if (!currentMenu->menuitems[i].alphaKey)
+					y += LINEHEIGHT;
 				break;
 			case IT_TRANSTEXT:
 				currentmenuitem_offy_byalphakey(y)
 				V_DrawString(x, y, V_TRANSLUCENT, currentMenu->menuitems[i].text);
 				break;
 			case IT_TRANSTEXT2:
+				y += currentMenu->menuitems[i].alphaKey;
 				V_DrawString(x, y, V_TRANSLUCENT, currentMenu->menuitems[i].text);
-				currentmenuitem_offy(y, (!currentMenu->menuitems[i].alphaKey ? SMALLLINEHEIGHT : currentMenu->menuitems[i].alphaKey))
+				if (!currentMenu->menuitems[i].alphaKey)
+					y += SMALLLINEHEIGHT;
 				break;
 			case IT_QUESTIONMARKS:
 				currentmenuitem_offy_byalphakey(y)
