@@ -947,7 +947,7 @@ static menuitem_t MP_MainMenu[] =
 static menuitem_t MP_ServerMenu[] =
 {
 	{IT_STRING|IT_CALL,              NULL, "Room...",                  M_RoomMenu,          10},
-	{IT_STRING|IT_CVAR|IT_CV_STRING, NULL, "Server Name",              &cv_servername,      20},
+	{IT_STRING|IT_CVAR|IT_CV_STRING, NULL, "Server Name",              &cv_servername,      10},
 	{IT_STRING|IT_CVAR,              NULL, "Max Players",              &cv_maxplayers,      26},
 	{IT_STRING|IT_CVAR,              NULL, "Allow Add-on Downloading", &cv_downloading,     10},
 	{IT_STRING|IT_CALL,              NULL, "Select Gametype/Level...", M_MapChange,         44},
@@ -971,7 +971,7 @@ static menuitem_t MP_ConnectMenu[] =
 	{IT_STRING | IT_CALL,       NULL, "Room...",  M_RoomMenu,         4},
 	{IT_STRING | IT_CVAR,       NULL, "Sort By",  &cv_serversort,     8},
 	{IT_STRING | IT_KEYHANDLER, NULL, "Page",     M_HandleServerPage, 8},
-	{IT_STRING | IT_CALL,       NULL, "Refresh",  M_Refresh,          28},
+	{IT_STRING | IT_CALL,       NULL, "Refresh",  M_Refresh,          8},
 
 	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,          16},
 	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,           4},
@@ -1062,9 +1062,9 @@ static menuitem_t OP_P2ControlsMenu[] =
 	{IT_SUBMENU | IT_STRING, NULL, "Second Mouse Options...", &OP_Mouse2OptionsDef, 10},
 	{IT_SUBMENU | IT_STRING, NULL, "Second Gamepad Options...", &OP_Joystick2Def  ,  10},
 
-	{IT_SUBMENU | IT_STRING, NULL, "Camera Options...", &OP_Camera2OptionsDef,	10},
+	{IT_SUBMENU | IT_STRING, NULL, "Camera Options...", &OP_Camera2OptionsDef,	20},
 
-	{IT_STRING  | IT_CVAR, NULL, "Automatic braking", &cv_autobrake2,  10},
+	{IT_STRING  | IT_CVAR, NULL, "Automatic braking", &cv_autobrake2,  20},
 	{IT_CALL    | IT_STRING, NULL, "Play Style...", M_Setup2PPlaystyleMenu, 10},
 };
 
@@ -1411,7 +1411,7 @@ static menuitem_t OP_OpenGLOptionsMenu[] =
 	{IT_STRING|IT_CVAR,         NULL, "Frame interpolation", &cv_glmodelinterpolation, 10},
 	{IT_STRING|IT_CVAR,         NULL, "Ambient lighting",    &cv_glmodellighting,      10},
 
-	{IT_HEADER, NULL, "General", NULL, 51},
+	{IT_HEADER, NULL, "General", NULL, 19},
 	{IT_STRING|IT_CVAR,         NULL, "Shaders",             &cv_glshaders,            12},
 	{IT_STRING|IT_CVAR,         NULL, "Palette rendering",   &cv_glpaletterendering,   10},
 	{IT_STRING|IT_CVAR,         NULL, "Lack of perspective", &cv_glshearing,           10},
@@ -1463,18 +1463,6 @@ static menuitem_t OP_SoundOptionsMenu[] =
 	{IT_STRING | IT_SUBMENU, NULL, "Advanced Settings...", &OP_SoundAdvancedDef, 10},
 };
 
-#ifdef HAVE_OPENMPT
-#define OPENMPT_MENUOFFSET 32
-#else
-#define OPENMPT_MENUOFFSET 0
-#endif
-
-#ifdef HAVE_MIXERX
-#define MIXERX_MENUOFFSET 81
-#else
-#define MIXERX_MENUOFFSET 0
-#endif
-
 static menuitem_t OP_SoundAdvancedMenu[] =
 {
 #ifdef HAVE_OPENMPT
@@ -1483,20 +1471,17 @@ static menuitem_t OP_SoundAdvancedMenu[] =
 #endif
 
 #ifdef HAVE_MIXERX
-	{IT_HEADER, NULL, "MIDI Settings", NULL, OPENMPT_MENUOFFSET},
-	{IT_STRING | IT_CVAR, NULL, "MIDI Player", &cv_midiplayer, OPENMPT_MENUOFFSET+12},
-	{IT_STRING | IT_CVAR | IT_CV_STRING, NULL, "FluidSynth Sound Font File", &cv_midisoundfontpath, OPENMPT_MENUOFFSET+24},
-	{IT_STRING | IT_CVAR | IT_CV_STRING, NULL, "TiMidity++ Config Folder", &cv_miditimiditypath, OPENMPT_MENUOFFSET+51},
+	{IT_HEADER, NULL, "MIDI Settings", NULL, 20},
+	{IT_STRING | IT_CVAR, NULL, "MIDI Player", &cv_midiplayer, 12},
+	{IT_STRING | IT_CVAR | IT_CV_STRING, NULL, "FluidSynth Sound Font File", &cv_midisoundfontpath, 12},
+	{IT_STRING | IT_CVAR | IT_CV_STRING, NULL, "TiMidity++ Config Folder", &cv_miditimiditypath, 27},
 #endif
 
-	{IT_HEADER, NULL, "Miscellaneous", NULL, OPENMPT_MENUOFFSET+MIXERX_MENUOFFSET},
-	{IT_STRING | IT_CVAR, NULL, "Play Sound Effects if Unfocused", &cv_playsoundsifunfocused, OPENMPT_MENUOFFSET+MIXERX_MENUOFFSET+12},
-	{IT_STRING | IT_CVAR, NULL, "Play Music if Unfocused", &cv_playmusicifunfocused, OPENMPT_MENUOFFSET+MIXERX_MENUOFFSET+22},
-	{IT_STRING | IT_CVAR, NULL, "Let Levels Force Reset Music", &cv_resetmusicbyheader, OPENMPT_MENUOFFSET+MIXERX_MENUOFFSET+32},
+	{IT_HEADER, NULL, "Miscellaneous", NULL, 20},
+	{IT_STRING | IT_CVAR, NULL, "Play Sound Effects if Unfocused", &cv_playsoundsifunfocused, 12},
+	{IT_STRING | IT_CVAR, NULL, "Play Music if Unfocused", &cv_playmusicifunfocused, 10},
+	{IT_STRING | IT_CVAR, NULL, "Let Levels Force Reset Music", &cv_resetmusicbyheader, 10},
 };
-
-#undef OPENMPT_MENUOFFSET
-#undef MIXERX_MENUOFFSET
 
 static menuitem_t OP_DataOptionsMenu[] =
 {
@@ -4374,8 +4359,6 @@ static void M_DrawGenericMenu(void)
 	{
 		if (i == itemOn)
 			cursory = y;
-		if (currentMenu->menuitems[i].alphaKey && currentMenu->menuitems[i].status & IT_DISPLAY)
-			y += currentMenu->menuitems[i].alphaKey;
 		switch (currentMenu->menuitems[i].status & IT_DISPLAY)
 		{
 			case IT_PATCH:
@@ -4396,14 +4379,18 @@ static void M_DrawGenericMenu(void)
 				/* FALLTHRU */
 			case IT_NOTHING:
 			case IT_DYBIGSPACE:
-				y += LINEHEIGHT;
+				if (!currentMenu->menuitems[i].alphaKey)
+					y += LINEHEIGHT;
+
 				break;
 			case IT_BIGSLIDER:
 				M_DrawThermo(x, y, (consvar_t *)currentMenu->menuitems[i].itemaction);
-				y += LINEHEIGHT;
+				if (!currentMenu->menuitems[i].alphaKey)
+					y += LINEHEIGHT;
 				break;
 			case IT_STRING:
 			case IT_WHITESTRING:
+				y += currentMenu->menuitems[i].alphaKey;
 				if (i == itemOn)
 					cursory = y;
 
@@ -4446,37 +4433,45 @@ static void M_DrawGenericMenu(void)
 						}
 						break;
 					}
-					if (!currentMenu->menuitems[i].alphaKey)
-						y += STRINGHEIGHT;
 					break;
 			case IT_STRING2:
 				V_DrawString(x, y, 0, currentMenu->menuitems[i].text);
 				/* FALLTHRU */
 			case IT_DYLITLSPACE:
-				y += SMALLLINEHEIGHT;
+				if (!currentMenu->menuitems[i].alphaKey)
+					y += SMALLLINEHEIGHT;
+				else
+					y += currentMenu->menuitems[i].alphaKey;
 				break;
 			case IT_GRAYPATCH:
 				if (currentMenu->menuitems[i].patch && currentMenu->menuitems[i].patch[0])
 					V_DrawMappedPatch(x, y, 0,
 						W_CachePatchName(currentMenu->menuitems[i].patch,PU_PATCH), graymap);
-				y += LINEHEIGHT;
+				if (!currentMenu->menuitems[i].alphaKey)
+					y += LINEHEIGHT;
+				else
+					y += currentMenu->menuitems[i].alphaKey;
 				break;
 			case IT_TRANSTEXT:
 				/* FALLTHRU */
 			case IT_TRANSTEXT2:
 				V_DrawString(x, y, V_TRANSLUCENT, currentMenu->menuitems[i].text);
-				y += SMALLLINEHEIGHT;
+				if (!currentMenu->menuitems[i].alphaKey)
+					y += SMALLLINEHEIGHT;
+				else
+					y += currentMenu->menuitems[i].alphaKey;
 				break;
 			case IT_QUESTIONMARKS:
 				V_DrawString(x, y, V_TRANSLUCENT|V_OLDSPACING, M_CreateSecretMenuOption(currentMenu->menuitems[i].text));
-				y += SMALLLINEHEIGHT;
-				break;
-			case IT_HEADERTEXT: // draws 16 pixels to the left, in yellow text
-
-				//V_DrawString(x-16, y, V_YELLOWMAP, currentMenu->menuitems[i].text);
-				M_DrawLevelPlatterHeader(y - (lsheadingheight - 12), currentMenu->menuitems[i].text, true, false);
 				if (!currentMenu->menuitems[i].alphaKey)
 					y += SMALLLINEHEIGHT;
+				else
+					y += currentMenu->menuitems[i].alphaKey;
+				break;
+			case IT_HEADERTEXT: // draws 16 pixels to the left, in yellow text
+				y += currentMenu->menuitems[i].alphaKey;
+				//V_DrawString(x-16, y, V_YELLOWMAP, currentMenu->menuitems[i].text);
+				M_DrawLevelPlatterHeader(y - (lsheadingheight - 12), currentMenu->menuitems[i].text, true, false);
 				break;
 		}
 	}
@@ -4597,36 +4592,33 @@ static void M_DrawControlsDefMenu(void)
 // note that alphakey is multiplied by 2 for scrolling menus to allow greater usage in UINT8 range.
 static void M_DrawGenericScrollMenu(void)
 {
-	INT32 x, y, i, max, bottom, tempcentery, offy, cursory = 0;
+	INT32 x, y, i, max, bottom, offy, cursory = 0;
 
 	// DRAW MENU
 	x = currentMenu->x;
-	y = currentMenu->y;
-	offy = 0;
+	y = 0;
 
 	for (i = 0; i<itemOn; i++)
 		y += currentMenu->menuitems[i].alphaKey;
 
-	offy = y;
-	for (i++; i<currentMenu->numitems; i++)
+	for (offy = y; i<currentMenu->numitems; i++)
 		offy += currentMenu->menuitems[i].alphaKey;
 
 
 	if (offy < scrollareaheight)
-		tempcentery = currentMenu->y; // Not tall enough to scroll, but this thinker is used in case it becomes so
+		y = currentMenu->y; // Not tall enough to scroll, but this thinker is used in case it becomes so
 	else if ((y*2 - currentMenu->menuitems[0].alphaKey*2) <= scrollareaheight)
-		tempcentery = currentMenu->y - currentMenu->menuitems[0].alphaKey*2;
+		y = currentMenu->y - currentMenu->menuitems[0].alphaKey*2;
 	else if ((offy*2 - y*2) <= scrollareaheight)
-		tempcentery = currentMenu->y - offy*2 + 2*scrollareaheight;
+		y = currentMenu->y - offy*2 + 2*scrollareaheight;
 	else
-		tempcentery = currentMenu->y - y*2 + scrollareaheight;
+		y = currentMenu->y - y*2 + scrollareaheight;
 
-	y = 0;
 
 	for (i = 0; i < currentMenu->numitems; i++)
 	{
 		y += currentMenu->menuitems[i].alphaKey*2;
-		if (currentMenu->menuitems[i].status != IT_DISABLED && y + tempcentery >= currentMenu->y)
+		if (currentMenu->menuitems[i].status != IT_DISABLED && y >= currentMenu->y)
 			break;
 	}
 
@@ -4642,7 +4634,7 @@ static void M_DrawGenericScrollMenu(void)
 	for (max = bottom; max > 0; max--)
 	{
 		offy -= currentMenu->menuitems[i].alphaKey*2;
-		if (currentMenu->menuitems[max-1].status != IT_DISABLED && offy + tempcentery <= (currentMenu->y + 2*scrollareaheight))
+		if (currentMenu->menuitems[max-1].status != IT_DISABLED && offy <= (currentMenu->y + 2*scrollareaheight))
 			break;
 	}
 
@@ -4654,12 +4646,9 @@ static void M_DrawGenericScrollMenu(void)
 	// draw title (or big pic)
 	M_DrawMenuTitle();
 
-	y += tempcentery;
 
 	for (; i < max; i++)
 	{
-		if (i == itemOn)
-			cursory = y;
 		switch (currentMenu->menuitems[i].status & IT_DISPLAY)
 		{
 			case IT_PATCH:
@@ -4672,11 +4661,11 @@ static void M_DrawGenericScrollMenu(void)
 				// unsupported
 				break;
 			case IT_NOTHING:
+			case IT_SPACE:
 				break;
 			case IT_STRING:
 			case IT_WHITESTRING:
-				if (currentMenu->menuitems[i].alphaKey)
-					y += currentMenu->menuitems[i].alphaKey*2;
+				y += currentMenu->menuitems[i].alphaKey*2;
 				if (i != itemOn && (currentMenu->menuitems[i].status & IT_DISPLAY)==IT_STRING)
 					V_DrawString(x, y, 0, currentMenu->menuitems[i].text);
 				else
@@ -4732,6 +4721,7 @@ static void M_DrawGenericScrollMenu(void)
 					}
 					break;
 			case IT_TRANSTEXT:
+				y += currentMenu->menuitems[i].alphaKey*2;
 				switch (currentMenu->menuitems[i].status & IT_TYPE)
 				{
 					case IT_PAIR:
@@ -4746,17 +4736,17 @@ static void M_DrawGenericScrollMenu(void)
 				}
 				break;
 			case IT_QUESTIONMARKS:
-				if (currentMenu->menuitems[i].alphaKey)
-					y += currentMenu->menuitems[i].alphaKey*2;
+				y += currentMenu->menuitems[i].alphaKey*2;
 				V_DrawString(x, y, V_TRANSLUCENT|V_OLDSPACING, M_CreateSecretMenuOption(currentMenu->menuitems[i].text));
 				break;
 			case IT_HEADERTEXT:
-				if (currentMenu->menuitems[i].alphaKey)
-					y += currentMenu->menuitems[i].alphaKey*2;
+				y += currentMenu->menuitems[i].alphaKey*2;
 				//V_DrawString(x-16, y, V_YELLOWMAP, currentMenu->menuitems[i].text);
 				M_DrawLevelPlatterHeader(y - (lsheadingheight - 12), currentMenu->menuitems[i].text, true, false);
 				break;
 		}
+		if (i == itemOn)
+			cursory = y;
 	}
 
 	// DRAW THE SKULL CURSOR
@@ -8162,7 +8152,7 @@ static void M_SecretsMenu(INT32 choice)
 
 		skyRoomMenuTranslations[i-1] = (UINT8)ul;
 		SR_MainMenu[i].text = unlockables[ul].name;
-		SR_MainMenu[i].alphaKey = (UINT16)unlockables[ul].height - (i == 1 ? offy:0);
+		SR_MainMenu[i].alphaKey = (UINT16)unlockables[ul].height - (i != 1 ? offy:0);
 		offy += SR_MainMenu[i].alphaKey;
 
 		if (unlockables[ul].type == SECRET_HEADER)
@@ -11354,6 +11344,21 @@ static void M_DrawRoomMenu(void)
 	}
 }
 
+// StarManiaKG: To tie in with Bitten's relative menus, we have this!
+// This'll return the alphaKey(s) of the item itself and the ones before it.
+static INT32 M_GetPreviousAlphaKeysBeforeItem(INT32 menuitem)
+{
+	INT32 y = 0;
+	INT32 i;
+
+
+	for (i = 0; i <= menuitem; i++)
+	{
+		if (currentMenu->menuitems[i].alphaKey && currentMenu->menuitems[i].status & IT_DISPLAY)
+			y += currentMenu->menuitems[i].alphaKey;
+	}
+	return y;
+}
 static void M_DrawConnectMenu(void)
 {
 	UINT16 i;
@@ -11368,14 +11373,14 @@ static void M_DrawConnectMenu(void)
 
 	// Room name
 	if (cv_masterserver_room_id.value < 0)
-		V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + MP_ConnectMenu[mp_connect_room].alphaKey,
+		V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + M_GetPreviousAlphaKeysBeforeItem(mp_connect_room),
 		                         V_YELLOWMAP, (itemOn == mp_connect_room) ? "<Select to change>" : "<Unlisted Mode>");
 	else
-		V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + MP_ConnectMenu[mp_connect_room].alphaKey,
+		V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + M_GetPreviousAlphaKeysBeforeItem(mp_connect_room),
 		                         V_YELLOWMAP, room_list[menuRoomIndex].name);
 
 	// Page num
-	V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + MP_ConnectMenu[mp_connect_page].alphaKey,
+	V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + M_GetPreviousAlphaKeysBeforeItem(mp_connect_page),
 	                         V_YELLOWMAP, va("%u of %d", serverlistpage+1, numPages));
 
 	// Horizontal line!
@@ -11773,16 +11778,16 @@ static void M_DrawServerMenu(void)
 	{
 		M_DrawLevelPlatterHeader(currentMenu->y - lsheadingheight/2, "Server settings", true, false);
 		if (cv_masterserver_room_id.value < 0)
-			V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + MP_ServerMenu[mp_server_room].alphaKey,
+			V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + M_GetPreviousAlphaKeysBeforeItem(mp_server_room),
 			                         V_YELLOWMAP, (itemOn == mp_server_room) ? "<Select to change>" : "<Unlisted Mode>");
 		else
-			V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + MP_ServerMenu[mp_server_room].alphaKey,
+			V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + M_GetPreviousAlphaKeysBeforeItem(mp_server_room),
 			                         V_YELLOWMAP, room_list[menuRoomIndex].name);
 	}
 
 	if (cv_nextmap.value)
 	{
-#define imgheight MP_ServerMenu[mp_server_levelgt].alphaKey
+#define imgheight M_GetPreviousAlphaKeysBeforeItem(currentMenu == &MP_ServerDef ? mp_server_levelgt : mp_server_room)
 		patch_t *PictureOfLevel;
 		lumpnum_t lumpnum;
 		char headerstr[40];
@@ -13946,7 +13951,7 @@ static void M_DrawMainVideoMenu(void)
 	{
 		INT32 y = currentMenu->y+currentMenu->menuitems[1].alphaKey*2;
 		if (itemOn == 7)
-			y -= 10;
+			y += 2;
 		V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, y,
 		(SCR_IsAspectCorrect(vid.width, vid.height) ? V_GREENMAP : V_YELLOWMAP),
 			va("%dx%d", vid.width, vid.height));
@@ -14260,11 +14265,11 @@ static void M_DrawScreenshotMenu(void)
 {
 	M_DrawGenericScrollMenu();
 #ifdef HWRENDER
-	if ((rendermode == render_opengl) && (itemOn < 7)) // where it starts to go offscreen; change this number if you change the layout of the screenshot menu
+	if ((rendermode == render_opengl) && (itemOn < 9)) // where it starts to go offscreen; change this number if you change the layout of the screenshot menu
 	{
-		INT32 y = currentMenu->y+currentMenu->menuitems[op_screenshot_colorprofile].alphaKey*2;
-		if (itemOn == 6)
-			y -= 10;
+		INT32 y = currentMenu->y+M_GetPreviousAlphaKeysBeforeItem(op_screenshot_colorprofile)*2;
+		if (itemOn == 7)
+			y += 10;
 		V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, y, V_REDMAP, "Yes");
 	}
 #endif
