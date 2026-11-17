@@ -558,12 +558,12 @@ static menuitem_t MPauseMenu[] =
 
 	{IT_STRING | IT_CALL,    NULL, "Continue",                  M_SelectableClearMenus,16},
 
-	{IT_STRING | IT_CALL,    NULL, "Player 1 Setup",            M_SetupMultiPlayer,    16}, // splitscreen
+	{IT_STRING | IT_CALL,    NULL, "Player 1 Setup",            M_SetupMultiPlayer,     8}, // splitscreen
 	{IT_STRING | IT_CALL,    NULL, "Player 2 Setup",            M_SetupMultiPlayer2,    8},
 
-	{IT_STRING | IT_CALL,    NULL, "Spectate",                  M_ConfirmSpectate,     16}, // alone
-	{IT_STRING | IT_CALL,    NULL, "Enter Game",                M_ConfirmEnterGame,    16},
-	{IT_STRING | IT_SUBMENU, NULL, "Switch Team...",            &MISC_ChangeTeamDef,   16},
+	{IT_STRING | IT_CALL,    NULL, "Spectate",                  M_ConfirmSpectate,     12}, // alone
+	{IT_STRING | IT_CALL,    NULL, "Enter Game",                M_ConfirmEnterGame,    12},
+	{IT_STRING | IT_SUBMENU, NULL, "Switch Team...",            &MISC_ChangeTeamDef,   12},
 	{IT_STRING | IT_CALL,    NULL, "Player Setup",              M_SetupMultiPlayer,     8},
 
 	{IT_STRING | IT_CALL,    NULL, "Options",                   M_Options,              8},
@@ -4449,17 +4449,14 @@ static void M_DrawGenericMenu(void)
 						W_CachePatchName(currentMenu->menuitems[i].patch,PU_PATCH), graymap);
 				if (!currentMenu->menuitems[i].alphaKey)
 					y += LINEHEIGHT;
-				else
-					y += currentMenu->menuitems[i].alphaKey;
 				break;
 			case IT_TRANSTEXT:
 				/* FALLTHRU */
 			case IT_TRANSTEXT2:
+				y += currentMenu->menuitems[i].alphaKey;
 				V_DrawString(x, y, V_TRANSLUCENT, currentMenu->menuitems[i].text);
 				if (!currentMenu->menuitems[i].alphaKey)
 					y += SMALLLINEHEIGHT;
-				else
-					y += currentMenu->menuitems[i].alphaKey;
 				break;
 			case IT_QUESTIONMARKS:
 				y += currentMenu->menuitems[i].alphaKey;
