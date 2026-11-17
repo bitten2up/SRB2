@@ -4462,6 +4462,7 @@ static void M_DrawGenericMenu(void)
 					y += currentMenu->menuitems[i].alphaKey;
 				break;
 			case IT_QUESTIONMARKS:
+				y += currentMenu->menuitems[i].alphaKey;
 				V_DrawString(x, y, V_TRANSLUCENT|V_OLDSPACING, M_CreateSecretMenuOption(currentMenu->menuitems[i].text));
 				if (!currentMenu->menuitems[i].alphaKey)
 					y += SMALLLINEHEIGHT;
