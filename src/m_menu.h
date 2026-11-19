@@ -273,7 +273,7 @@ boolean M_CanShowLevelInList(INT32 mapnum, INT32 gt);
 #define IT_HEADERTEXT    (48+128)   // Non-selectable header option, displays in yellow offset to the left a little
 #define IT_QUESTIONMARKS (64+128)   // Displays as question marks, used for secrets
 #define IT_CENTER           256     // extra flag - if IT_PATCH, center it on screen
-#define IT_NOSPACE         8192     // extra flag - don't add space after
+#define IT_NOSPACE          512     // extra flag - if IT_GRAYPATCH/IT_DISABLED, don't add space after
 
 //consvar specific
 #define IT_CVARTYPE   (512+1024+2048)

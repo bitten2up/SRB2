@@ -561,15 +561,9 @@ static menuitem_t MPauseMenu[] =
 	{IT_STRING | IT_CALL,    NULL, "Player 1 Setup",            M_SetupMultiPlayer,     8}, // splitscreen
 	{IT_STRING | IT_CALL,    NULL, "Player 2 Setup",            M_SetupMultiPlayer2,    8},
 
-#if 0
 	{IT_STRING | IT_CALL,    NULL, "Spectate",                  M_ConfirmSpectate,      8}, // alone (game entering method; replaceable by below)
 	{IT_STRING | IT_CALL,    NULL, "Enter Game",                M_ConfirmEnterGame,     8}, // game entering method; replaceable by above or below
 	{IT_STRING | IT_SUBMENU, NULL, "Switch Team...",            &MISC_ChangeTeamDef,    8}, // game entering method; replaceable by above
-#else
-	{IT_STRING | IT_CALL,    NULL, "Spectate",                  M_ConfirmSpectate,     12}, // alone
-	{IT_STRING | IT_CALL,    NULL, "Enter Game",                M_ConfirmEnterGame,    12},
-	{IT_STRING | IT_SUBMENU, NULL, "Switch Team...",            &MISC_ChangeTeamDef,   12},
-#endif
 	{IT_STRING | IT_CALL,    NULL, "Player Setup",              M_SetupMultiPlayer,     8},
 
 	{IT_STRING | IT_CALL,    NULL, "Options",                   M_Options,              8},
@@ -1461,7 +1455,7 @@ static menuitem_t OP_SoundOptionsMenu[] =
 	{IT_STRING | IT_CVAR | IT_CV_SLIDER, NULL, "Sound Volume", &cv_soundvolume, 5},
 
 	{IT_STRING | IT_CVAR,  NULL,  "Digital Music", &cv_gamedigimusic, 10},
-	{IT_STRING | IT_CVAR | IT_CV_SLIDER, NULL, "Digital Music Volume", &cv_digmusicvolume,  6},
+	{IT_STRING | IT_CVAR | IT_CV_SLIDER, NULL, "Digital Music Volume", &cv_digmusicvolume,  5},
 
 	{IT_STRING | IT_CVAR,  NULL,  "MIDI Music", &cv_gamemidimusic, 10},
 	{IT_STRING | IT_CVAR | IT_CV_SLIDER, NULL, "MIDI Music Volume", &cv_midimusicvolume, 5},
@@ -1487,7 +1481,7 @@ static menuitem_t OP_SoundAdvancedMenu[] =
 	{IT_HEADER, NULL, "MIDI Settings", NULL, 20},
 	{IT_STRING | IT_CVAR, NULL, "MIDI Player", &cv_midiplayer, 12},
 	{IT_STRING | IT_CVAR | IT_CV_STRING, NULL, "FluidSynth Sound Font File", &cv_midisoundfontpath, 12},
-	{IT_STRING | IT_CVAR | IT_CV_STRING, NULL, "TiMidity++ Config Folder", &cv_miditimiditypath, 27},
+	{IT_STRING | IT_CVAR | IT_CV_STRING, NULL, "TiMidity++ Config Folder", &cv_miditimiditypath, 10},
 #endif
 
 	{IT_HEADER, NULL, "Miscellaneous", NULL, 20},
@@ -4037,11 +4031,6 @@ void M_InitCharacterTables(INT32 num)
 // SPECIAL MENU OPTION DRAW ROUTINES GO HERE
 // ==========================================================================
 
-// StarManiaKG: Macros to offset a menuitem's height
-#define menuitem_offy(menuitem, y, value) { if (!(menuitem.status & IT_NOSPACE)) y += value; }
-#define currentmenuitem_offy(y, value) menuitem_offy(currentMenu->menuitems[i], y, value)
-#define currentmenuitem_offy_byalphakey(y) menuitem_offy(currentMenu->menuitems[i], y, currentMenu->menuitems[i].alphaKey)
-
 // StarManiaKG: To tie in with Bitten's relative menus, we have this!
 // This'll return the alphaKey(s) of the item itself and the ones before it.
 static UINT16 M_GetPreviousAlphaKeysBeforeItem(menu_t *menu, INT32 menuitem)
@@ -4054,8 +4043,6 @@ static UINT16 M_GetPreviousAlphaKeysBeforeItem(menu_t *menu, INT32 menuitem)
 
 	for (i = 0; i <= menuitem; i++)
 	{
-		if (menu->menuitems[i].status & IT_NOSPACE)
-			continue;
 		switch (menu->menuitems[i].status & IT_DISPLAY)
 		{
 			case IT_STRING:
@@ -4077,6 +4064,10 @@ static UINT16 M_GetPreviousAlphaKeysBeforeItem(menu_t *menu, INT32 menuitem)
 					default:
 						break;
 				}
+				break;
+			case IT_GRAYPATCH:
+				if (!(currentMenu->menuitems[i].status & IT_NOSPACE))
+					y += (!currentMenu->menuitems[i].alphaKey ? LINEHEIGHT : currentMenu->menuitems[i].alphaKey);
 				break;
 			case IT_TRANSTEXT:
 				y += menu->menuitems[i].alphaKey;
@@ -4444,15 +4435,15 @@ static void M_DrawGenericMenu(void)
 				/* FALLTHRU */
 			case IT_NOTHING:
 			case IT_DYBIGSPACE:
-				currentmenuitem_offy(y, LINEHEIGHT);
+				y += LINEHEIGHT;
 				break;
 			case IT_BIGSLIDER:
 				M_DrawThermo(x, y, (consvar_t *)currentMenu->menuitems[i].itemaction);
-				currentmenuitem_offy(y, LINEHEIGHT);
+				y += LINEHEIGHT;
 				break;
 			case IT_STRING:
 			case IT_WHITESTRING:
-				currentmenuitem_offy_byalphakey(y)
+				y += currentMenu->menuitems[i].alphaKey;
 				if (i == itemOn)
 					cursory = y;
 
@@ -4500,17 +4491,17 @@ static void M_DrawGenericMenu(void)
 				V_DrawString(x, y, 0, currentMenu->menuitems[i].text);
 				/* FALLTHRU */
 			case IT_DYLITLSPACE:
-				currentmenuitem_offy(y, (!currentMenu->menuitems[i].alphaKey ? SMALLLINEHEIGHT : currentMenu->menuitems[i].alphaKey))
+				y += (!currentMenu->menuitems[i].alphaKey ? SMALLLINEHEIGHT : currentMenu->menuitems[i].alphaKey);
 				break;
 			case IT_GRAYPATCH:
 				if (currentMenu->menuitems[i].patch && currentMenu->menuitems[i].patch[0])
 					V_DrawMappedPatch(x, y, 0,
 						W_CachePatchName(currentMenu->menuitems[i].patch,PU_PATCH), graymap);
-				if (!currentMenu->menuitems[i].alphaKey)
-					y += LINEHEIGHT;
+				if (!(currentMenu->menuitems[i].status & IT_NOSPACE))
+					y += (!currentMenu->menuitems[i].alphaKey ? LINEHEIGHT : currentMenu->menuitems[i].alphaKey);
 				break;
 			case IT_TRANSTEXT:
-				currentmenuitem_offy_byalphakey(y)
+				y += currentMenu->menuitems[i].alphaKey;
 				V_DrawString(x, y, V_TRANSLUCENT, currentMenu->menuitems[i].text);
 				break;
 			case IT_TRANSTEXT2:
@@ -4520,13 +4511,12 @@ static void M_DrawGenericMenu(void)
 					y += SMALLLINEHEIGHT;
 				break;
 			case IT_QUESTIONMARKS:
-				currentmenuitem_offy_byalphakey(y)
+				y += currentMenu->menuitems[i].alphaKey;
 				V_DrawString(x, y, V_TRANSLUCENT|V_OLDSPACING, M_CreateSecretMenuOption(currentMenu->menuitems[i].text));
-				currentmenuitem_offy(y, (!currentMenu->menuitems[i].alphaKey ? SMALLLINEHEIGHT : currentMenu->menuitems[i].alphaKey))
-				y += SMALLLINEHEIGHT;
+				y += (!currentMenu->menuitems[i].alphaKey ? SMALLLINEHEIGHT : currentMenu->menuitems[i].alphaKey);
 				break;
 			case IT_HEADERTEXT: // draws 16 pixels to the left, in yellow text
-				currentmenuitem_offy_byalphakey(y)
+				y += currentMenu->menuitems[i].alphaKey;
 				//V_DrawString(x-16, y, V_YELLOWMAP, currentMenu->menuitems[i].text);
 				M_DrawLevelPlatterHeader(y - (lsheadingheight - 12), currentMenu->menuitems[i].text, true, false);
 				break;
@@ -4718,7 +4708,7 @@ static void M_DrawGenericScrollMenu(void)
 				break;
 			case IT_STRING:
 			case IT_WHITESTRING:
-				currentmenuitem_offy(y, currentMenu->menuitems[i].alphaKey*2)
+				y += currentMenu->menuitems[i].alphaKey*2;
 				if (i != itemOn && (currentMenu->menuitems[i].status & IT_DISPLAY)==IT_STRING)
 					V_DrawString(x, y, 0, currentMenu->menuitems[i].text);
 				else
@@ -4774,7 +4764,7 @@ static void M_DrawGenericScrollMenu(void)
 					}
 					break;
 			case IT_TRANSTEXT:
-				currentmenuitem_offy(y, currentMenu->menuitems[i].alphaKey*2)
+				y += currentMenu->menuitems[i].alphaKey*2;
 				switch (currentMenu->menuitems[i].status & IT_TYPE)
 				{
 					case IT_PAIR:
@@ -4787,11 +4777,11 @@ static void M_DrawGenericScrollMenu(void)
 				}
 				break;
 			case IT_QUESTIONMARKS:
-				currentmenuitem_offy(y, currentMenu->menuitems[i].alphaKey*2)
+				y += currentMenu->menuitems[i].alphaKey*2;
 				V_DrawString(x, y, V_TRANSLUCENT|V_OLDSPACING, M_CreateSecretMenuOption(currentMenu->menuitems[i].text));
 				break;
 			case IT_HEADERTEXT:
-				currentmenuitem_offy(y, currentMenu->menuitems[i].alphaKey*2)
+				y += currentMenu->menuitems[i].alphaKey*2;
 				//V_DrawString(x-16, y, V_YELLOWMAP, currentMenu->menuitems[i].text);
 				M_DrawLevelPlatterHeader(y - (lsheadingheight - 12), currentMenu->menuitems[i].text, true, false);
 				break;
@@ -4989,9 +4979,7 @@ static void M_DrawCenteredMenu(void)
 	for (i = 0; i < currentMenu->numitems; i++)
 	{
 		if (currentMenu->menuitems[i].alphaKey && currentMenu->menuitems[i].status & IT_DISPLAY)
-			currentmenuitem_offy_byalphakey(y)
-		if (currentMenu->menuitems[i].status & IT_NOSPACE)
-			CONS_Printf("no_space\n");
+			y += currentMenu->menuitems[i].alphaKey;
 		if (i == itemOn)
 			cursory = y;
 		switch (currentMenu->menuitems[i].status & IT_DISPLAY)
@@ -5014,11 +5002,11 @@ static void M_DrawCenteredMenu(void)
 				/* FALLTHRU */
 			case IT_NOTHING:
 			case IT_DYBIGSPACE:
-				currentmenuitem_offy(y, LINEHEIGHT)
+				y += LINEHEIGHT;
 				break;
 			case IT_BIGSLIDER:
 				M_DrawThermo(x, y, (consvar_t *)currentMenu->menuitems[i].itemaction);
-				currentmenuitem_offy(y, LINEHEIGHT)
+				y += LINEHEIGHT;
 				break;
 			case IT_STRING:
 			case IT_WHITESTRING:
@@ -5061,25 +5049,26 @@ static void M_DrawCenteredMenu(void)
 						break;
 					}
 					if (!currentMenu->menuitems[i].alphaKey)
-						currentmenuitem_offy(y, STRINGHEIGHT)
+						y += STRINGHEIGHT;
 					break;
 			case IT_STRING2:
 				V_DrawCenteredString(x, y, 0, currentMenu->menuitems[i].text);
 				/* FALLTHRU */
 			case IT_DYLITLSPACE:
-				currentmenuitem_offy(y, SMALLLINEHEIGHT)
+				y += SMALLLINEHEIGHT;
 				break;
 			case IT_QUESTIONMARKS:
-				currentmenuitem_offy_byalphakey(y)
+				y += currentMenu->menuitems[i].alphaKey;
 				V_DrawCenteredString(x, y, V_TRANSLUCENT|V_OLDSPACING, M_CreateSecretMenuOption(currentMenu->menuitems[i].text));
 				if (!currentMenu->menuitems[i].alphaKey)
-					currentmenuitem_offy(y, SMALLLINEHEIGHT)
+					y += SMALLLINEHEIGHT;
 				break;
 			case IT_GRAYPATCH:
 				if (currentMenu->menuitems[i].patch && currentMenu->menuitems[i].patch[0])
 					V_DrawMappedPatch(x, y, 0,
 						W_CachePatchName(currentMenu->menuitems[i].patch,PU_PATCH), graymap);
-				currentmenuitem_offy(y, LINEHEIGHT)
+				if (!(currentMenu->menuitems[i].status & IT_NOSPACE))
+					y += (!currentMenu->menuitems[i].alphaKey ? LINEHEIGHT : currentMenu->menuitems[i].alphaKey);
 				break;
 		}
 	}
@@ -10057,7 +10046,7 @@ void M_DrawTimeAttackMenu(void)
 		if (dispstatus != IT_STRING && dispstatus != IT_WHITESTRING)
 			continue;
 
-		currentmenuitem_offy(y, currentMenu->menuitems[i].alphaKey)
+		y += currentMenu->menuitems[i].alphaKey;
 		if (i == itemOn)
 			cursory = y;
 
@@ -10338,7 +10327,7 @@ void M_DrawNightsAttackMenu(void)
 		if (dispstatus != IT_STRING && dispstatus != IT_WHITESTRING)
 			continue;
 
-		currentmenuitem_offy(y, currentMenu->menuitems[i].alphaKey)
+		y += currentMenu->menuitems[i].alphaKey;
 		if (i == itemOn)
 			cursory = y;
 
@@ -11171,7 +11160,7 @@ void M_DrawMarathon(void)
 		if (dispstatus != IT_STRING && dispstatus != IT_WHITESTRING)
 			continue;
 
-		currentmenuitem_offy(y, currentMenu->menuitems[i].alphaKey)
+		y += currentMenu->menuitems[i].alphaKey;
 		if (i == itemOn)
 			cursory = y;
 
@@ -14116,7 +14105,7 @@ static void M_DrawColorMenu(void)
 
 	for (; i < max; i++)
 	{
-		currentmenuitem_offy(y, currentMenu->menuitems[i].alphaKey*2 + tempcentery)
+		y += currentMenu->menuitems[i].alphaKey*2 + tempcentery;
 		if (i == itemOn)
 			cursory = y;
 		switch (currentMenu->menuitems[i].status & IT_DISPLAY)
